@@ -50,27 +50,32 @@ impl GameHandle {
             player_id
         });
         loop {
-            let cmd = remote.read().unwrap();
-            let cmd = cmd.trim();
-            match cmd {
-                "l" | "r" => self.with_game(|game| {
-                    let player = game.get_player(player_id);
-                    match &*cmd {
-                        "l" if player.posn > 0 => player.posn -= 1,
-                        "l" => (),
-                        "r" => player.posn += 1,
-                        _ => panic!("internal error: bad cmd"),
+            let optcmd = remote.read().unwrap();
+            match optcmd {
+                Some(cmd) => {
+                    let cmd = cmd.trim();
+                    match cmd {
+                        "l" | "r" => self.with_game(|game| {
+                            let player = game.get_player(player_id);
+                            match &*cmd {
+                                "l" if player.posn > 0 => player.posn -= 1,
+                                "l" => (),
+                                "r" => player.posn += 1,
+                                _ => panic!("internal error: bad cmd"),
+                            }
+                            write!(remote, "posn {:10}\r", player.posn)
+                                .unwrap();
+                        }),
+                        "q" => {
+                            self.with_game(|game| {
+                                game.players.remove(&player_id).unwrap();
+                            });
+                            return;
+                        }
+                        c => write!(remote, "{}?\r", c).unwrap(),
                     }
-                    write!(remote, "posn {:10}\r", player.posn)
-                        .unwrap();
-                }),
-                "q" => {
-                    self.with_game(|game| {
-                        game.players.remove(&player_id).unwrap();
-                    });
-                    return;
-                }
-                c => write!(remote, "{}?\r", c).unwrap(),
+                },
+                None => write!(remote, ".\r").unwrap(),
             }
         }
     }

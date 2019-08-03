@@ -4,6 +4,7 @@ use telnet::*;
 use NegotiationAction::*;
 use TelnetOption::*;
 
+use core::time::*;
 use std::collections::HashSet;
 use std::io::*;
 use std::net::*;
@@ -47,6 +48,7 @@ pub struct Connection {
     telnet: Telnet,
     ttypes: HashSet<String>,
     next_event: Option<TelnetEvent>,
+    timeout: Option<Duration>,
     pub cbreak: bool,
     pub echo: bool,
     pub ansi: bool,
@@ -61,6 +63,7 @@ impl Connection {
             telnet,
             ttypes: HashSet::new(),
             next_event: None,
+            timeout: None,
             cbreak: false,
             echo: true,
             ansi: false,
@@ -160,21 +163,28 @@ impl Connection {
         }
     }
 
+    pub fn set_timeout(&mut self, ms: Option<u64>) {
+        self.timeout = ms.map(|t| Duration::from_millis(t));
+    }
+
     fn get_event(&mut self) -> io::Result<TelnetEvent> {
         if let Some(event) = self.next_event.take() {
             self.next_event = None;
             return Ok(event);
         }
-        self.telnet.read()
+        match self.timeout {
+            None => self.telnet.read(),
+            Some(timeout) => self.telnet.read_timeout(timeout),
+        }
     }
 
-    pub fn read(&mut self) -> io::Result<String> {
+    pub fn read(&mut self) -> io::Result<Option<String>> {
         loop {
             let event = self.get_event()?;
             use TelnetEvent::*;
             match event {
                 Data(buf) => match String::from_utf8(buf.to_vec()) {
-                    Ok(s) => return Ok(s),
+                    Ok(s) => return Ok(Some(s)),
                     Err(e) => {
                         return Err(io::Error::new(
                             ErrorKind::InvalidData,
@@ -182,7 +192,7 @@ impl Connection {
                         ))
                     }
                 },
-                TimedOut => panic!("unexpected telnet read timeout"),
+                TimedOut => return Ok(None),
                 NoData => eprintln!("unexpected telnet read nodata"),
                 Error(msg) => {
                     panic!("unexpected telnet read error: {}", msg)
@@ -221,6 +231,7 @@ impl GameHandle {
                         assert!(conn.negotiate_noecho().unwrap());
                         // Don't currently need ANSI.
                         // assert!(conn.negotiate_ansi().unwrap());
+                        conn.set_timeout(Some(100));
                         handle.play(conn);
                     });
                 }
