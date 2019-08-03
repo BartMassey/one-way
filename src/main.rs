@@ -1,6 +1,8 @@
 mod net;
+mod field;
 
 pub use net::*;
+pub use field::*;
 
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
@@ -16,6 +18,7 @@ struct PlayerState {
 struct GameState {
     next_player_id: u64,
     players: HashMap<u64, PlayerState>,
+    field: Field,
 }
 
 impl GameState {
