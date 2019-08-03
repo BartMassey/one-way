@@ -2,10 +2,10 @@ mod net;
 
 pub use net::*;
 
-pub use std::io::{self, Write};
-use std::collections::HashMap;
-pub use std::sync::{Arc, Mutex};
 use std::borrow::BorrowMut;
+use std::collections::HashMap;
+pub use std::io::{self, Write};
+pub use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
 struct PlayerState {
@@ -28,7 +28,10 @@ impl GameState {
 struct GameHandle(Arc<Mutex<GameState>>);
 
 impl GameHandle {
-    fn init_game(&mut self, mut action: impl FnMut(&mut GameState) -> u64) -> u64 {
+    fn init_game(
+        &mut self,
+        mut action: impl FnMut(&mut GameState) -> u64,
+    ) -> u64 {
         let mut state = self.0.borrow_mut().lock().unwrap();
         action(&mut state)
     }
@@ -58,12 +61,15 @@ impl GameHandle {
                         "r" => player.posn += 1,
                         _ => panic!("internal error: bad cmd"),
                     }
-                    write!(remote, "posn {:10}\r", player.posn).unwrap();
+                    write!(remote, "posn {:10}\r", player.posn)
+                        .unwrap();
                 }),
                 "q" => {
-                    self.with_game(|game| {game.players.remove(&player_id).unwrap();});
+                    self.with_game(|game| {
+                        game.players.remove(&player_id).unwrap();
+                    });
                     return;
-                },
+                }
                 c => write!(remote, "{}?\r", c).unwrap(),
             }
         }

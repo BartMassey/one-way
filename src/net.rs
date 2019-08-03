@@ -4,8 +4,8 @@ use telnet::*;
 use NegotiationAction::*;
 use TelnetOption::*;
 
-use std::net::*;
 use std::io::*;
+use std::net::*;
 
 #[derive(Debug)]
 pub struct NegotiationError;
@@ -38,16 +38,26 @@ impl Connection {
             match self.0.read()? {
                 Data(buf) => match String::from_utf8(buf.to_vec()) {
                     Ok(s) => return Ok(s),
-                    Err(e) => return Err(io::Error::new(ErrorKind::InvalidData, e)),
+                    Err(e) => {
+                        return Err(io::Error::new(
+                            ErrorKind::InvalidData,
+                            e,
+                        ))
+                    }
                 },
                 TimedOut => panic!("unexpected telnet read timeout"),
                 NoData => panic!("unexpected telnet read nodata"),
-                Error(msg) => panic!("unexpected telnet read error: {}", msg),
+                Error(msg) => {
+                    panic!("unexpected telnet read error: {}", msg)
+                }
                 Negotiation(Do, SuppressGoAhead) => (),
                 Negotiation(Do, Echo) => (),
                 neg => {
                     eprintln!("{:?}", neg);
-                    return Err(io::Error::new(ErrorKind::InvalidData, NegotiationError))
+                    return Err(io::Error::new(
+                        ErrorKind::InvalidData,
+                        NegotiationError,
+                    ));
                 }
             }
         }
@@ -75,10 +85,10 @@ impl GameHandle {
                     let _ = std::thread::spawn(move || {
                         handle.play(Connection::new(socket));
                     });
-                },
+                }
                 Err(e) => {
                     println!("couldn't get client: {:?}", e);
-                },
+                }
             }
         }
     }
