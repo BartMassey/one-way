@@ -1,3 +1,8 @@
+# Copyright © 2019 Bart Massey
+# [This program is licensed under the GPL version 3 or later.]
+# Please see the file LICENSE in the source
+# distribution of this software for license terms.
+
 [package]
 name = "one-way"
 version = "0.1.0"
