@@ -4,13 +4,13 @@ use telnet::*;
 use NegotiationAction::*;
 use TelnetOption::*;
 
+use std::collections::HashSet;
 use std::io::*;
 use std::net::*;
-use std::collections::HashSet;
 
 // Terminal type information from
 // https://code.google.com/archive/p/bogboa/wikis/TerminalTypes.wiki
-const TTYPES: &[&'static str] = &[
+const TTYPES: &[&str] = &[
     "ansi",
     "xterm",
     "eterm",
@@ -46,25 +46,131 @@ impl std::error::Error for NegotiationError {
 pub struct Connection {
     telnet: Telnet,
     ttypes: HashSet<String>,
+    next_event: Option<TelnetEvent>,
+    pub cbreak: bool,
+    pub echo: bool,
     pub ansi: bool,
+    pub width: Option<u16>,
+    pub height: Option<u16>,
 }
 
 impl Connection {
     pub fn new(stream: TcpStream) -> Connection {
-        let mut telnet = Telnet::from_stream(Box::new(stream), 256);
-        telnet.negotiate(Will, SuppressGoAhead);
-        telnet.negotiate(Will, Echo);
-        telnet.negotiate(Do, TTYPE);
-        Connection { telnet, ttypes: HashSet::new(), ansi: false }
+        let telnet = Telnet::from_stream(Box::new(stream), 256);
+        Connection {
+            telnet,
+            ttypes: HashSet::new(),
+            next_event: None,
+            cbreak: false,
+            echo: true,
+            ansi: false,
+            width: None,
+            height: None,
+        }
     }
 
-    fn negotiate_ansi(&mut self) {
-        self.telnet.subnegotiate(TelnetOption::TTYPE, &[SEND]);
+    pub fn negotiate_cbreak(&mut self) -> io::Result<bool> {
+        self.telnet.negotiate(Will, SuppressGoAhead);
+        let event = self.get_event()?;
+        use TelnetEvent::*;
+        match event {
+            Negotiation(Do, SuppressGoAhead) => {
+                eprintln!("terminal will cbreak");
+                self.cbreak = true;
+                Ok(true)
+            }
+            Negotiation(Dont, SuppressGoAhead) => {
+                eprintln!("terminal wont cbreak");
+                self.cbreak = false;
+                Ok(false)
+            }
+            event => {
+                self.next_event = Some(event);
+                Ok(false)
+            }
+        }
+    }
+
+    pub fn negotiate_noecho(&mut self) -> io::Result<bool> {
+        // XXX *We* will echo, so terminal should not.
+        self.telnet.negotiate(Will, Echo);
+        let event = self.get_event()?;
+        use TelnetEvent::*;
+        match event {
+            Negotiation(Do, Echo) => {
+                eprintln!("terminal wont echo");
+                self.echo = false;
+                Ok(true)
+            }
+            Negotiation(Dont, Echo) => {
+                eprintln!("terminal will echo");
+                self.echo = true;
+                Ok(false)
+            }
+            event => {
+                self.next_event = Some(event);
+                Ok(false)
+            }
+        }
+    }
+
+    pub fn negotiate_ansi(&mut self) -> io::Result<bool> {
+        self.telnet.negotiate(Do, TTYPE);
+        loop {
+            let event = self.get_event()?;
+            use TelnetEvent::*;
+            match event {
+                Negotiation(Will, TTYPE) => {
+                    eprintln!("starting ANSI negotiation");
+                    self.telnet
+                        .subnegotiate(TelnetOption::TTYPE, &[SEND]);
+                }
+                Negotiation(Wont, TTYPE) => {
+                    eprintln!("terminal wont ANSI");
+                    self.ansi = false;
+                    return Ok(false);
+                }
+                Subnegotiation(TTYPE, buf) => {
+                    assert_eq!(buf[0], IS);
+                    let ttype = std::str::from_utf8(&buf[1..])
+                        .unwrap()
+                        .to_string();
+                    for good_ttype in TTYPES {
+                        let ttype = ttype.to_lowercase();
+                        if ttype.starts_with(*good_ttype) {
+                            eprintln!("got ANSI terminal");
+                            self.ansi = true;
+                            return Ok(true);
+                        }
+                    }
+                    if self.ttypes.contains(&ttype) {
+                        eprintln!("terminal cannot ANSI");
+                        self.ansi = false;
+                        return Ok(false);
+                    }
+                    eprintln!("unloved terminal: {}", ttype);
+                    self.ttypes.insert(ttype);
+                    self.telnet.subnegotiate(TTYPE, &[SEND]);
+                }
+                event => {
+                    self.next_event = Some(event);
+                    return Ok(false);
+                }
+            }
+        }
+    }
+
+    fn get_event(&mut self) -> io::Result<TelnetEvent> {
+        if let Some(event) = self.next_event.take() {
+            self.next_event = None;
+            return Ok(event);
+        }
+        self.telnet.read()
     }
 
     pub fn read(&mut self) -> io::Result<String> {
-        'eventloop: loop {
-            let event = self.telnet.read()?;
+        loop {
+            let event = self.get_event()?;
             use TelnetEvent::*;
             match event {
                 Data(buf) => match String::from_utf8(buf.to_vec()) {
@@ -81,32 +187,10 @@ impl Connection {
                 Error(msg) => {
                     panic!("unexpected telnet read error: {}", msg)
                 }
-                Negotiation(Do, SuppressGoAhead) => (),
-                Negotiation(Do, Echo) => (),
-                Negotiation(Will, TTYPE) => self.negotiate_ansi(),
-                Negotiation(Wont, TTYPE) => eprintln!("terminal wont ANSI"),
-                Subnegotiation(TTYPE, buf) => {
-                    assert_eq!(buf[0], IS);
-                    let ttype = std::str::from_utf8(&buf[1..]).unwrap().to_string();
-                    for good_ttype in TTYPES {
-                        let ttype = ttype.to_lowercase();
-                        if ttype.len() < good_ttype.len() {
-                            continue;
-                        }
-                        if &ttype[0..good_ttype.len()] == *good_ttype {
-                            eprintln!("got ANSI terminal");
-                            self.ansi = true;
-                            continue 'eventloop;
-                        }
-                    }
-                    if self.ttypes.contains(&ttype) {
-                        eprintln!("terminal cannot ANSI");
-                        continue 'eventloop;
-                    }
-                    eprintln!("unloved terminal: {}", ttype);
-                    self.ttypes.insert(ttype);
-                    self.telnet.subnegotiate(TTYPE, &[SEND]);
-                },
+                Subnegotiation(subneg, buf) => eprintln!(
+                    "unexpected subnegotiation: {:?} {:?}",
+                    subneg, buf
+                ),
                 neg => eprintln!("unexpected negotation: {:?}", neg),
             }
         }
@@ -132,7 +216,12 @@ impl GameHandle {
                     println!("new client: {:?}", addr);
                     let handle = self.clone();
                     let _ = std::thread::spawn(move || {
-                        handle.play(Connection::new(socket));
+                        let mut conn = Connection::new(socket);
+                        assert!(conn.negotiate_cbreak().unwrap());
+                        assert!(conn.negotiate_noecho().unwrap());
+                        // Don't currently need ANSI.
+                        // assert!(conn.negotiate_ansi().unwrap());
+                        handle.play(conn);
                     });
                 }
                 Err(e) => {
