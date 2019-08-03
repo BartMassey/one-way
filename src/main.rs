@@ -1,6 +1,8 @@
 mod net;
 
-pub use std::io::{BufRead, Write, BufReader, Error};
+pub use net::*;
+
+pub use std::io::{self, Write};
 use std::collections::HashMap;
 pub use std::sync::{Arc, Mutex};
 use std::borrow::BorrowMut;
@@ -36,7 +38,7 @@ impl GameHandle {
         action(&mut state);
     }
 
-    pub fn play(mut self, mut reader: impl BufRead, mut writer: impl Write) {
+    pub fn play(mut self, mut remote: Connection) {
         let player_id = self.init_game(|game| {
             let player_id = game.next_player_id + 1;
             game.next_player_id = player_id;
@@ -45,8 +47,7 @@ impl GameHandle {
             player_id
         });
         loop {
-            let mut cmd = String::new();
-            reader.read_line(&mut cmd).unwrap();
+            let cmd = remote.read().unwrap();
             let cmd = cmd.trim();
             match cmd {
                 "l" | "r" => self.with_game(|game| {
@@ -57,13 +58,13 @@ impl GameHandle {
                         "r" => player.posn += 1,
                         _ => panic!("internal error: bad cmd"),
                     }
-                    writeln!(writer, "posn {}", player.posn).unwrap();
+                    writeln!(remote, "posn {}", player.posn).unwrap();
                 }),
                 "q" => {
                     self.with_game(|game| {game.players.remove(&player_id).unwrap();});
                     return;
                 },
-                c => writeln!(writer, "{}?", c).unwrap(),
+                c => writeln!(remote, "{}?", c).unwrap(),
             }
         }
     }
