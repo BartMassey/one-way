@@ -1,6 +1,8 @@
 use crate::*;
 
 use telnet::*;
+use NegotiationAction::*;
+use TelnetOption::*;
 
 use std::net::*;
 use std::io::*;
@@ -24,22 +26,29 @@ pub struct Connection(Telnet);
 
 impl Connection {
     pub fn new(stream: TcpStream) -> Connection {
-        Connection(Telnet::from_stream(Box::new(stream), 256))
+        let mut telnet = Telnet::from_stream(Box::new(stream), 256);
+        telnet.negotiate(Will, SuppressGoAhead);
+        telnet.negotiate(Will, Echo);
+        Connection(telnet)
     }
 
     pub fn read(&mut self) -> io::Result<String> {
-        use TelnetEvent::*;
-        match self.0.read()? {
-            Data(buf) => match String::from_utf8(buf.to_vec()) {
-                Ok(s) => Ok(s),
-                Err(e) => Err(io::Error::new(ErrorKind::InvalidData, e)),
-            },
-            TimedOut => panic!("unexpected telnet read timeout"),
-            NoData => panic!("unexpected telnet read nodata"),
-            Error(msg) => panic!("unexpected telnet read error: {}", msg),
-            neg => {
-                eprintln!("{:?}", neg);
-                Err(io::Error::new(ErrorKind::InvalidData, NegotiationError))
+        loop {
+            use TelnetEvent::*;
+            match self.0.read()? {
+                Data(buf) => match String::from_utf8(buf.to_vec()) {
+                    Ok(s) => return Ok(s),
+                    Err(e) => return Err(io::Error::new(ErrorKind::InvalidData, e)),
+                },
+                TimedOut => panic!("unexpected telnet read timeout"),
+                NoData => panic!("unexpected telnet read nodata"),
+                Error(msg) => panic!("unexpected telnet read error: {}", msg),
+                Negotiation(Do, SuppressGoAhead) => (),
+                Negotiation(Do, Echo) => (),
+                neg => {
+                    eprintln!("{:?}", neg);
+                    return Err(io::Error::new(ErrorKind::InvalidData, NegotiationError))
+                }
             }
         }
     }

@@ -58,13 +58,13 @@ impl GameHandle {
                         "r" => player.posn += 1,
                         _ => panic!("internal error: bad cmd"),
                     }
-                    writeln!(remote, "posn {}", player.posn).unwrap();
+                    write!(remote, "posn {:10}\r", player.posn).unwrap();
                 }),
                 "q" => {
                     self.with_game(|game| {game.players.remove(&player_id).unwrap();});
                     return;
                 },
-                c => writeln!(remote, "{}?", c).unwrap(),
+                c => write!(remote, "{}?\r", c).unwrap(),
             }
         }
     }
