@@ -9,9 +9,18 @@ use std::collections::HashMap;
 pub use std::io::{self, Write};
 pub use std::sync::{Arc, Mutex};
 
-#[derive(Default)]
 struct PlayerState {
     posn: usize,
+    width: u16,
+}
+
+impl PlayerState {
+    fn new(width: Option<u16>) -> Self {
+        PlayerState {
+            posn: 1,
+            width: width.unwrap_or(80),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -48,7 +57,7 @@ impl GameHandle {
         let player_id = self.init_game(|game| {
             let player_id = game.next_player_id + 1;
             game.next_player_id = player_id;
-            let player = PlayerState::default();
+            let player = PlayerState::new(remote.width);
             game.players.insert(player_id, player);
             player_id
         });

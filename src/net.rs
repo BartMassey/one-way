@@ -4,6 +4,8 @@ use telnet::*;
 use NegotiationAction::*;
 use TelnetOption::*;
 
+use byteorder::{BigEndian, ByteOrder};
+
 use core::time::*;
 use std::collections::HashSet;
 use std::io::*;
@@ -163,6 +165,44 @@ impl Connection {
         }
     }
 
+    pub fn negotiate_winsize(&mut self) -> io::Result<bool> {
+        self.telnet.negotiate(Do, NAWS);
+        loop {
+            let event = self.get_event()?;
+            use TelnetEvent::*;
+            match event {
+                Negotiation(Will, NAWS) => {
+                    eprintln!("starting NAWS negotiation");
+                    self.telnet
+                        .subnegotiate(TelnetOption::NAWS, &[]);
+                }
+                Negotiation(Wont, NAWS) => {
+                    eprintln!("terminal wont NAWS");
+                    self.width = None;
+                    self.height = None;
+                    return Ok(false);
+                }
+                Subnegotiation(NAWS, buf) => {
+                    assert_eq!(buf.len(), 4);
+                    let width: u16 = BigEndian::read_u16(&buf[0..2]);
+                    let height: u16 = BigEndian::read_u16(&buf[2..4]);
+                    eprintln!("terminal winsize {} {}", width, height);
+                    if width > 0 {
+                        self.width = Some(width);
+                    }
+                    if height > 0 {
+                        self.height = Some(height);
+                    }
+                    return Ok(width > 0 || height > 0);
+                }
+                event => {
+                    self.next_event = Some(event);
+                    return Ok(false);
+                }
+            }
+        }
+    }
+
     pub fn set_timeout(&mut self, ms: Option<u64>) {
         self.timeout = ms.map(|t| Duration::from_millis(t));
     }
@@ -227,6 +267,7 @@ impl GameHandle {
                     let handle = self.clone();
                     let _ = std::thread::spawn(move || {
                         let mut conn = Connection::new(socket);
+                        let _ = conn.negotiate_winsize().unwrap();
                         assert!(conn.negotiate_cbreak().unwrap());
                         assert!(conn.negotiate_noecho().unwrap());
                         // Don't currently need ANSI.
