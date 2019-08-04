@@ -5,55 +5,48 @@
 
 mod net;
 mod field;
+mod player;
 
 pub use net::*;
 pub use field::*;
+pub use player::*;
 
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 pub use std::io::{self, Write};
 pub use std::sync::{Arc, Mutex};
 
-struct PlayerState {
-    posn: usize,
-    width: u16,
+#[derive(Default)]
+struct Game {
+    next_player_id: u64,
+    players: HashMap<u64, usize>,
+    field: Field,
 }
 
-impl PlayerState {
-    fn new(width: Option<u16>) -> Self {
-        PlayerState {
-            posn: 1,
-            width: width.unwrap_or(80),
+impl Game {
+    fn get_player(&mut self, player_id: u64) -> Option<&mut Player> {
+        let &loc = self.players.get(&player_id)?;
+        if let Some(Object::Hero(player)) = self.field[loc].object.as_mut() {
+            Some(player)
+        } else {
+            panic!("player has gone missing");
         }
     }
 }
 
-#[derive(Default)]
-struct GameState {
-    next_player_id: u64,
-    players: HashMap<u64, PlayerState>,
-    field: Field,
-}
-
-impl GameState {
-    fn get_player(&mut self, player_id: u64) -> &mut PlayerState {
-        self.players.get_mut(&player_id).unwrap()
-    }
-}
-
 #[derive(Default, Clone)]
-struct GameHandle(Arc<Mutex<GameState>>);
+struct GameHandle(Arc<Mutex<Game>>);
 
 impl GameHandle {
     fn init_game(
         &mut self,
-        mut action: impl FnMut(&mut GameState) -> u64,
+        mut action: impl FnMut(&mut Game) -> u64,
     ) -> u64 {
         let mut state = self.0.borrow_mut().lock().unwrap();
         action(&mut state)
     }
 
-    fn with_game(&mut self, mut action: impl FnMut(&mut GameState)) {
+    fn with_game(&mut self, mut action: impl FnMut(&mut Game)) {
         let mut state = self.0.borrow_mut().lock().unwrap();
         action(&mut state);
     }
@@ -62,8 +55,10 @@ impl GameHandle {
         let player_id = self.init_game(|game| {
             let player_id = game.next_player_id + 1;
             game.next_player_id = player_id;
-            let player = PlayerState::new(remote.width);
-            game.players.insert(player_id, player);
+            let player = Player::new(remote.width);
+            let posn = player.posn;
+            game.players.insert(player_id, posn);
+            game.field.insert(Object::Hero(player), posn);
             player_id
         });
         loop {
@@ -72,8 +67,8 @@ impl GameHandle {
                 Some(cmd) => {
                     let cmd = cmd.trim();
                     match cmd {
-                        "l" | "r" => self.with_game(|game| {
-                            let player = game.get_player(player_id);
+                        "h" | "l" => self.with_game(|game| {
+                            let player = game.get_player(player_id).unwrap();
                             match &*cmd {
                                 "l" if player.posn > 0 => player.posn -= 1,
                                 "l" => (),
