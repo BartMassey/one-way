@@ -51,6 +51,21 @@ impl std::error::Error for NegotiationError {
     }
 }
 
+#[derive(Debug)]
+pub struct TelnetError(String);
+
+impl std::fmt::Display for TelnetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", <Self as std::error::Error>::description(self), self.0)
+    }
+}
+
+impl std::error::Error for TelnetError {
+    fn description(&self) -> &str {
+        "telnet error"
+    }
+}
+
 pub struct Connection {
     telnet: Telnet,
     ttypes: HashSet<String>,
@@ -85,12 +100,12 @@ impl Connection {
         use TelnetEvent::*;
         match event {
             Negotiation(Do, SuppressGoAhead) => {
-                eprintln!("terminal will cbreak");
+                //eprintln!("terminal will cbreak");
                 self.cbreak = true;
                 Ok(true)
             }
             Negotiation(Dont, SuppressGoAhead) => {
-                eprintln!("terminal wont cbreak");
+                //eprintln!("terminal wont cbreak");
                 self.cbreak = false;
                 Ok(false)
             }
@@ -108,12 +123,12 @@ impl Connection {
         use TelnetEvent::*;
         match event {
             Negotiation(Do, Echo) => {
-                eprintln!("terminal wont echo");
+                //eprintln!("terminal wont echo");
                 self.echo = false;
                 Ok(true)
             }
             Negotiation(Dont, Echo) => {
-                eprintln!("terminal will echo");
+                //eprintln!("terminal will echo");
                 self.echo = true;
                 Ok(false)
             }
@@ -131,12 +146,12 @@ impl Connection {
             use TelnetEvent::*;
             match event {
                 Negotiation(Will, TTYPE) => {
-                    eprintln!("starting ANSI negotiation");
+                    //eprintln!("starting ANSI negotiation");
                     self.telnet
                         .subnegotiate(TelnetOption::TTYPE, &[SEND]);
                 }
                 Negotiation(Wont, TTYPE) => {
-                    eprintln!("terminal wont ANSI");
+                    //eprintln!("terminal wont ANSI");
                     self.ansi = false;
                     return Ok(false);
                 }
@@ -148,17 +163,17 @@ impl Connection {
                     for good_ttype in TTYPES {
                         let ttype = ttype.to_lowercase();
                         if ttype.starts_with(*good_ttype) {
-                            eprintln!("got ANSI terminal");
+                            //eprintln!("got ANSI terminal");
                             self.ansi = true;
                             return Ok(true);
                         }
                     }
                     if self.ttypes.contains(&ttype) {
-                        eprintln!("terminal cannot ANSI");
+                        //eprintln!("terminal cannot ANSI");
                         self.ansi = false;
                         return Ok(false);
                     }
-                    eprintln!("unloved terminal: {}", ttype);
+                    //eprintln!("unloved terminal: {}", ttype);
                     self.ttypes.insert(ttype);
                     self.telnet.subnegotiate(TTYPE, &[SEND]);
                 }
@@ -177,11 +192,11 @@ impl Connection {
             use TelnetEvent::*;
             match event {
                 Negotiation(Will, NAWS) => {
-                    eprintln!("starting NAWS negotiation");
+                    //eprintln!("starting NAWS negotiation");
                     self.telnet.subnegotiate(TelnetOption::NAWS, &[]);
                 }
                 Negotiation(Wont, NAWS) => {
-                    eprintln!("terminal wont NAWS");
+                    //eprintln!("terminal wont NAWS");
                     self.width = None;
                     self.height = None;
                     return Ok(false);
@@ -190,7 +205,7 @@ impl Connection {
                     assert_eq!(buf.len(), 4);
                     let width: u16 = BigEndian::read_u16(&buf[0..2]);
                     let height: u16 = BigEndian::read_u16(&buf[2..4]);
-                    eprintln!("terminal winsize {} {}", width, height);
+                    //eprintln!("terminal winsize {} {}", width, height);
                     if width > 0 {
                         self.width = Some(width);
                     }
@@ -233,19 +248,22 @@ impl Connection {
                         return Err(io::Error::new(
                             ErrorKind::InvalidData,
                             e,
-                        ))
+                        ));
                     }
                 },
                 TimedOut => return Ok(None),
-                NoData => eprintln!("unexpected telnet read nodata"),
+                NoData => (),
                 Error(msg) => {
-                    panic!("unexpected telnet read error: {}", msg)
+                    return Err(io::Error::new(
+                        ErrorKind::InvalidData,
+                        TelnetError(msg),
+                    ));
                 }
                 Subnegotiation(subneg, buf) => eprintln!(
-                    "unexpected subnegotiation: {:?} {:?}",
+                    "telnet: unexpected subnegotiation: {:?} {:?}",
                     subneg, buf
                 ),
-                neg => eprintln!("unexpected negotation: {:?}", neg),
+                neg => eprintln!("telnet: unexpected negotation: {:?}", neg),
             }
         }
     }
