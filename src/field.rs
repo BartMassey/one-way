@@ -62,18 +62,26 @@ impl Field {
 
     pub fn insert(&mut self, object: Object, posn: usize) {
         self.establish(posn);
-        self.0[posn].object = Some(object);
+        self[posn].object = Some(object);
     }
 
     pub fn has_object(&self, posn: usize) -> bool {
-        posn < self.len() && self.0[posn].object.is_some()
+        posn < self.len() && self[posn].object.is_some()
+    }
+
+    pub fn has_monster(&self, posn: usize) -> bool {
+        if let Some(Monster(_)) = self[posn].object {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn collide(&mut self, posn: usize) -> bool {
         if self.has_object(posn) {
-            let status = self.0[posn].object.as_mut().unwrap().collide();
+            let status = self[posn].object.as_mut().unwrap().collide();
             if !status {
-                self.0[posn].object = None;
+                self[posn].object = None;
             }
             status
         } else {

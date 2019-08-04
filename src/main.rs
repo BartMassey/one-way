@@ -58,6 +58,14 @@ impl Game {
                 self.nmonsters += 1;
             }
         }
+
+        for (_, p) in self.players.iter() {
+            for &posn in &[p.posn - 1, p.posn + 1] {
+                if self.field.has_monster(posn) && self.health > 0 {
+                    self.health -= 1;
+                }
+            }
+        }
     }
 
     fn rest(&mut self) {
