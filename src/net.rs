@@ -178,8 +178,7 @@ impl Connection {
             match event {
                 Negotiation(Will, NAWS) => {
                     eprintln!("starting NAWS negotiation");
-                    self.telnet
-                        .subnegotiate(TelnetOption::NAWS, &[]);
+                    self.telnet.subnegotiate(TelnetOption::NAWS, &[]);
                 }
                 Negotiation(Wont, NAWS) => {
                     eprintln!("terminal wont NAWS");
@@ -209,7 +208,7 @@ impl Connection {
     }
 
     pub fn set_timeout(&mut self, ms: Option<u64>) {
-        self.timeout = ms.map(|t| Duration::from_millis(t));
+        self.timeout = ms.map(Duration::from_millis);
     }
 
     fn get_event(&mut self) -> io::Result<TelnetEvent> {
