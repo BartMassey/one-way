@@ -55,8 +55,12 @@ impl GameHandle {
         let player_id = self.init_game(|game| {
             let player_id = game.next_player_id + 1;
             game.next_player_id = player_id;
-            let player = Player::new(remote.width);
-            let posn = player.posn;
+            let mut player = Player::new(remote.width);
+            let mut posn = player.posn;
+            while game.field.has_object(posn) {
+                posn += 1;
+            }
+            player.posn = posn;
             game.players.insert(player_id, posn);
             game.field.insert(Object::Hero(player), posn);
             player_id

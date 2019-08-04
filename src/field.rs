@@ -41,11 +41,15 @@ pub struct Field(Vec<Loc>);
 
 impl Field {
     pub fn insert(&mut self, object: Object, posn: usize) {
-        if self.0.len() < posn {
-            self.0.resize_with(posn, Loc::default);
+        if self.0.len() <= posn {
+            self.0.resize_with(posn + 1, Loc::default);
         }
         assert!(self.0[posn].object.is_none());
         self.0[posn].object = Some(object);
+    }
+
+    pub fn has_object(&self, posn: usize) -> bool {
+        posn < self.0.len() && self.0[posn].object.is_some()
     }
 }
 
