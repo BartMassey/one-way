@@ -5,9 +5,10 @@
 
 [package]
 name = "one-way"
-version = "0.1.0"
-authors = ["Bart Massey <bart@cs.pdx.edu>"]
+version = "0.2.0"
+authors = ["Bart Massey <bart.massey@gmail.com>"]
 edition = "2018"
+license-file = "LICENSE"
 
 [dependencies]
 telnet = "0.1.4"
