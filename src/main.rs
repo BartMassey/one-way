@@ -21,6 +21,7 @@ pub use std::io::{self, Write};
 pub use std::sync::{Arc, Mutex};
 
 const MAX_HEALTH: u64 = 100;
+const DOOR_POSN: usize = 500;
 
 struct Game {
     next_player_id: u64,
@@ -123,6 +124,12 @@ impl GameHandle {
                     "q" => {
                         self.with_game(|game| {
                             game.players.remove(&player_id).unwrap();
+                            if game.players.is_empty() {
+                                write!(remote, "\rno more players, new game    \r\n").unwrap();
+                                *game = Game::default();
+                                return;
+                            }
+                            write!(remote, "\ryou quit, how sad    \r\n").unwrap();
                         });
                         return;
                     }
@@ -131,12 +138,22 @@ impl GameHandle {
                 self.with_game(|game| game.turn());
             }
             let done = self.with_game(|game| {
-                let mut done = false;
-                if game.health == 0 {
-                    write!(remote, "\rboard wipe, game over    \n").unwrap();
-                    done = true;
-                }
                 let player = game.players.get(&player_id).unwrap();
+                if player.posn >= DOOR_POSN {
+                    game.players.remove(&player_id).unwrap();
+                    if game.players.is_empty() {
+                        write!(remote, "\ry'all escaped, win!    \r\n").unwrap();
+                        *game = Game::default();
+                        return true;
+                    }
+                    write!(remote, "\ryou escaped, one down    \r\n").unwrap();
+                    return true;
+                }
+                if game.health == 0 {
+                    write!(remote, "\rboard wipe, game over    \r\n").unwrap();
+                    *game = Game::default();
+                    return true;
+                }
                 // Absolute position of player in field coords.
                 let posn = player.posn;
                 // Absolute position of left edge in field coords.
@@ -156,7 +173,7 @@ impl GameHandle {
                 write!(remote, "\r{}", render).unwrap();
                 write!(remote, "\r{}", &render[0..posn - left])
                     .unwrap();
-                done
+                false
             });
             if done {
                 return;
