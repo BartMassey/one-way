@@ -6,8 +6,8 @@
 mod field;
 mod mob;
 mod net;
-mod random;
 mod player;
+mod random;
 
 pub use field::*;
 pub use mob::*;
@@ -20,8 +20,8 @@ use std::collections::HashMap;
 pub use std::io::{self, Write};
 pub use std::sync::{Arc, Mutex};
 
-const MAX_HEALTH: u64 = 100;
-const DOOR_POSN: usize = 500;
+pub const MAX_HEALTH: u64 = 100;
+pub const DOOR_POSN: usize = 500;
 
 struct Game {
     next_player_id: u64,
@@ -54,7 +54,8 @@ impl Game {
         if nmonsters < len / 20 && nmonsters < self.turns / 5 {
             let posn = random(len) as usize;
             if !self.field.has_object(posn) {
-                self.field[posn].object = Some(Object::Monster(Mob::default()));
+                self.field[posn].object =
+                    Some(Object::Monster(Mob::default()));
                 self.nmonsters += 1;
             }
         }
@@ -86,7 +87,10 @@ impl GameHandle {
         action(&mut state)
     }
 
-    fn with_game<T>(&mut self, mut action: impl FnMut(&mut Game)->T) -> T {
+    fn with_game<T>(
+        &mut self,
+        mut action: impl FnMut(&mut Game) -> T,
+    ) -> T {
         let mut state = self.0.borrow_mut().lock().unwrap();
         action(&mut state)
     }
@@ -122,10 +126,10 @@ impl GameHandle {
                         if let Some(posn) = offset(player.posn, off) {
                             move_player = !game.field.collide(posn);
                         }
-                        if move_player {
-                            if player.move_player(off) {
-                                game.field.establish(player.posn + Player::MARGIN);
-                            }
+                        if move_player && player.move_player(off) {
+                            game.field.establish(
+                                player.posn + Player::MARGIN,
+                            );
                         }
                     }),
                     "." => self.with_game(|game| game.rest()),
@@ -133,11 +137,19 @@ impl GameHandle {
                         self.with_game(|game| {
                             game.players.remove(&player_id).unwrap();
                             if game.players.is_empty() {
-                                write!(remote, "\rno more players, new game    \r\n").unwrap();
+                                writeln!(
+                                    remote,
+                                    "\rno more players, new game    \r"
+                                )
+                                .unwrap();
                                 *game = Game::default();
                                 return;
                             }
-                            write!(remote, "\ryou quit, how sad    \r\n").unwrap();
+                            writeln!(
+                                remote,
+                                "\ryou quit, how sad    \r"
+                            )
+                            .unwrap();
                         });
                         return;
                     }
@@ -146,20 +158,26 @@ impl GameHandle {
                 self.with_game(|game| game.turn());
             }
             let done = self.with_game(|game| {
+                if game.health == 0 {
+                    writeln!(remote, "\rboard wipe, game over    \r")
+                        .unwrap();
+                    game.players.remove(&player_id).unwrap();
+                    if game.players.is_empty() {
+                        *game = Game::default();
+                    }
+                    return true;
+                }
                 let player = game.players.get(&player_id).unwrap();
                 if player.posn >= DOOR_POSN {
                     game.players.remove(&player_id).unwrap();
                     if game.players.is_empty() {
-                        write!(remote, "\ry'all escaped, win!    \r\n").unwrap();
+                        writeln!(remote, "\ry'all escaped, win!    \r")
+                            .unwrap();
                         *game = Game::default();
                         return true;
                     }
-                    write!(remote, "\ryou escaped, one down    \r\n").unwrap();
-                    return true;
-                }
-                if game.health == 0 {
-                    write!(remote, "\rboard wipe, game over    \r\n").unwrap();
-                    *game = Game::default();
+                    writeln!(remote, "\ryou escaped, one down    \r")
+                        .unwrap();
                     return true;
                 }
                 // Absolute position of player in field coords.

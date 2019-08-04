@@ -10,6 +10,7 @@ use std::ops::{Index, IndexMut};
 pub enum Object {
     Rock,
     Monster(Mob),
+    Door,
 }
 use Object::*;
 
@@ -18,6 +19,7 @@ impl Object {
         match self {
             Rock => '#',
             Monster(_) => 'M',
+            Door => '+',
         }
     }
 
@@ -25,6 +27,10 @@ impl Object {
         match self {
             Rock => true,
             Monster(ref mut mob) => mob.hit(),
+            Door => {
+                eprintln!("internal error: ran into a door");
+                false
+            }
         }
     }
 }
@@ -53,6 +59,7 @@ impl Loc {
 
 pub struct Field(Vec<Loc>);
 
+#[allow(clippy::len_without_is_empty)]
 impl Field {
     pub fn establish(&mut self, posn: usize) {
         if self.len() <= posn {
@@ -63,6 +70,11 @@ impl Field {
     pub fn insert(&mut self, object: Object, posn: usize) {
         self.establish(posn);
         self[posn].object = Some(object);
+    }
+
+    pub fn insert_floor(&mut self, object: Object, posn: usize) {
+        self.establish(posn);
+        self[posn].floor = Some(object);
     }
 
     pub fn has_object(&self, posn: usize) -> bool {
@@ -125,12 +137,8 @@ impl Default for Field {
             object: Some(Rock),
             floor: None,
         });
-        field.push(Loc::default());
-        field.push(Loc::default());
-        field.push(Loc {
-            object: Some(Monster(Mob::default())),
-            floor: None,
-        });
-        Field(field)
+        let mut field = Field(field);
+        field.insert_floor(Door, DOOR_POSN);
+        field
     }
 }
