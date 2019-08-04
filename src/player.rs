@@ -5,6 +5,8 @@ pub struct Player {
     pub width: u16,
     // Offset of player in range 0..width.
     pub left: usize,
+    pub display_cache: String,
+    pub posn_cache: usize,
 }
 
 pub fn offset(x: usize, dx: isize) -> Option<usize> {
@@ -24,6 +26,8 @@ impl Player {
             posn: 1,
             left: 1,
             width: width.unwrap_or(80),
+            display_cache: String::new(),
+            posn_cache: 0,
         }
     }
 

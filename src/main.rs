@@ -196,9 +196,15 @@ impl GameHandle {
                     }
                 }
                 let render: String = board.into_iter().collect();
-                write!(remote, "\r{}", render).unwrap();
-                write!(remote, "\r{}", &render[0..posn - left])
-                    .unwrap();
+                let posn = player.posn;
+                if posn != player.posn_cache || render != player.display_cache {
+                    write!(remote, "\r{}", render).unwrap();
+                    write!(remote, "\r{}", &render[0..posn - left])
+                        .unwrap();
+                    let player = game.players.get_mut(&player_id).unwrap();
+                    player.display_cache = render;
+                    player.posn_cache = posn;
+                }
                 false
             });
             if done {

@@ -126,10 +126,6 @@ ambitious. There was to be:
 
 The monsters were supposed to move.
 
-The clients should have had a display cache. As it is, the
-screen is fully refreshed every 100 ms. Good thing it's only
-one line!
-
 In retrospect, it probably would have been better to do a
 single-player console game in Python given the time
 constraints. But this was more fun.
