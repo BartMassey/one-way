@@ -55,10 +55,9 @@ pub struct Field(Vec<Loc>);
 
 impl Field {
     pub fn establish(&mut self, posn: usize) {
-        if self.0.len() <= posn {
+        if self.len() <= posn {
             self.0.resize_with(posn + 1, Loc::default);
         }
-        assert!(self.0[posn].object.is_none());
     }
 
     pub fn insert(&mut self, object: Object, posn: usize) {
@@ -67,7 +66,7 @@ impl Field {
     }
 
     pub fn has_object(&self, posn: usize) -> bool {
-        posn < self.0.len() && self.0[posn].object.is_some()
+        posn < self.len() && self.0[posn].object.is_some()
     }
 
     pub fn collide(&mut self, posn: usize) -> bool {
@@ -83,13 +82,17 @@ impl Field {
     }
 
     pub fn render(&self, left: usize, right: usize) -> Vec<char> {
-        let cright = right.min(self.0.len());
+        let cright = right.min(self.len());
         let mut result: Vec<char> = self.0[left..cright]
             .iter()
             .map(|loc| loc.render())
             .collect();
         result.resize(right - left, ' ');
         result
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -115,6 +118,11 @@ impl Default for Field {
             floor: None,
         });
         field.push(Loc::default());
+        field.push(Loc::default());
+        field.push(Loc {
+            object: Some(Monster(Mob::default())),
+            floor: None,
+        });
         Field(field)
     }
 }

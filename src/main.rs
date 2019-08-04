@@ -20,11 +20,49 @@ use std::collections::HashMap;
 pub use std::io::{self, Write};
 pub use std::sync::{Arc, Mutex};
 
-#[derive(Default)]
+const MAX_HEALTH: u64 = 100;
+
 struct Game {
     next_player_id: u64,
     players: HashMap<u64, Player>,
     field: Field,
+    turns: u64,
+    nmonsters: u64,
+    health: u64,
+}
+
+impl Default for Game {
+    fn default() -> Self {
+        Game {
+            next_player_id: 1,
+            players: HashMap::default(),
+            field: Field::default(),
+            turns: 0,
+            nmonsters: 0,
+            health: MAX_HEALTH,
+        }
+    }
+}
+
+impl Game {
+    fn turn(&mut self) {
+        self.turns += 1;
+
+        let len = self.field.len() as u64;
+        let nmonsters = self.nmonsters;
+        if nmonsters < len / 20 && nmonsters < self.turns / 5 {
+            let posn = random(len) as usize;
+            if !self.field.has_object(posn) {
+                self.field[posn].object = Some(Object::Monster(Mob::default()));
+                self.nmonsters += 1;
+            }
+        }
+    }
+
+    fn rest(&mut self) {
+        let health = self.health;
+        self.health = MAX_HEALTH.min(health + random(2));
+    }
 }
 
 #[derive(Default, Clone)]
@@ -39,9 +77,9 @@ impl GameHandle {
         action(&mut state)
     }
 
-    fn with_game(&mut self, mut action: impl FnMut(&mut Game)) {
+    fn with_game<T>(&mut self, mut action: impl FnMut(&mut Game)->T) -> T {
         let mut state = self.0.borrow_mut().lock().unwrap();
-        action(&mut state);
+        action(&mut state)
     }
 
     pub fn play(mut self, mut remote: Connection) {
@@ -81,16 +119,23 @@ impl GameHandle {
                             }
                         }
                     }),
+                    "." => self.with_game(|game| game.rest()),
                     "q" => {
                         self.with_game(|game| {
                             game.players.remove(&player_id).unwrap();
                         });
                         return;
                     }
-                    _ => (),
+                    _ => continue,
                 }
+                self.with_game(|game| game.turn());
             }
-            self.with_game(|game| {
+            let done = self.with_game(|game| {
+                let mut done = false;
+                if game.health == 0 {
+                    write!(remote, "\rboard wipe, game over    \n").unwrap();
+                    done = true;
+                }
                 let player = game.players.get(&player_id).unwrap();
                 // Absolute position of player in field coords.
                 let posn = player.posn;
@@ -111,7 +156,11 @@ impl GameHandle {
                 write!(remote, "\r{}", render).unwrap();
                 write!(remote, "\r{}", &render[0..posn - left])
                     .unwrap();
+                done
             });
+            if done {
+                return;
+            }
         }
     }
 }
