@@ -289,7 +289,7 @@ impl Write for Connection {
 
 impl GameHandle {
     pub fn run(self) -> ! {
-        let listener = TcpListener::bind("127.0.0.1:10001").unwrap();
+        let listener = TcpListener::bind("0.0.0.0:10001").unwrap();
         loop {
             match listener.accept() {
                 Ok((socket, addr)) => {
