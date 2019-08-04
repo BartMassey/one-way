@@ -69,10 +69,10 @@ impl GameHandle {
                     match cmd {
                         "h" | "l" => self.with_game(|game| {
                             let player = game.get_player(player_id).unwrap();
-                            match &*cmd {
-                                "l" if player.posn > 0 => player.posn -= 1,
-                                "l" => (),
-                                "r" => player.posn += 1,
+                            match cmd {
+                                "h" if player.posn > 0 => player.posn -= 1,
+                                "h" => (),
+                                "l" => player.posn += 1,
                                 _ => panic!("internal error: bad cmd"),
                             }
                             write!(remote, "posn {:10}\r", player.posn)
