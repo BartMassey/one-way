@@ -297,9 +297,23 @@ impl GameHandle {
                     let handle = self.clone();
                     let _ = std::thread::spawn(move || {
                         let mut conn = Connection::new(socket);
-                        let _ = conn.negotiate_winsize().unwrap();
-                        assert!(conn.negotiate_cbreak().unwrap());
-                        assert!(conn.negotiate_noecho().unwrap());
+                        match conn.negotiate_winsize() {
+                            Ok(true) => (),
+                            Ok(false) => eprintln!("no winsize"),
+                            Err(e) => eprintln!("no winsize: {}", e),
+                        }
+                        let termok = conn.negotiate_cbreak()
+                            .and_then(|_| conn.negotiate_noecho());
+                        match termok {
+                            Ok(true) => (),
+                            e => {
+                                eprintln!("cannot set up terminal: {:?}", e);
+                                writeln!(conn,
+    "Your telnet client cannot be put in no-echo single-character mode\n
+     as needed to play the game. Apologies.").unwrap();
+                                return;
+                            }
+                        }
                         // Don't currently need ANSI.
                         // assert!(conn.negotiate_ansi().unwrap());
                         conn.set_timeout(Some(100));
