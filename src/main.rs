@@ -62,18 +62,23 @@ impl GameHandle {
                     "h" | "l" => self.with_game(|game| {
                         let player =
                             game.players.get_mut(&player_id).unwrap();
-                        match cmd {
-                            "h" => {
-                                let _ = player.move_player(-1);
-                            }
-                            "l" => {
-                                if player.move_player(1) {
-                                    game.field.establish(
-                                        player.posn + Player::MARGIN,
-                                    );
+                        let off = match cmd {
+                            "h" => -1,
+                            "l" => 1,
+                            _ => panic!("internal error: bad cmd"),
+                        };
+                        let mut move_player = true;
+                        if let Some(posn) = offset(player.posn, off) {
+                            if let Some(ref obj) = game.field[posn].object {
+                                if obj.collide() {
+                                    move_player = false;
                                 }
                             }
-                            _ => panic!("internal error: bad cmd"),
+                        }
+                        if move_player {
+                            if player.move_player(off) {
+                                game.field.establish(player.posn + Player::MARGIN);
+                            }
                         }
                     }),
                     "q" => {

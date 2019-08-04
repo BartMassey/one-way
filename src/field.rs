@@ -16,6 +16,12 @@ impl Object {
             Rock => '#',
         }
     }
+
+    pub fn collide(&self) -> bool {
+        match self {
+            Rock => true,
+        }
+    }
 }
 
 #[derive(Default)]
