@@ -124,6 +124,10 @@ ambitious. There was to be:
 * One potion and one scroll.
 * One Boss guarding the door at the end.
 
+There was supposed to be a dialog system to manage
+overlaying the playfield with text for messages and the
+like. An inter-player messaging system was planned.
+
 The monsters were supposed to move.
 
 In retrospect, it probably would have been better to do a
