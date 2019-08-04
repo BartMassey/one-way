@@ -3,10 +3,13 @@
 // Please see the file LICENSE in the source
 // distribution of this software for license terms.
 
+use crate::*;
+
 use std::ops::{Index, IndexMut};
 
 pub enum Object {
     Rock,
+    Monster(Mob),
 }
 use Object::*;
 
@@ -14,12 +17,14 @@ impl Object {
     pub fn render(&self) -> char {
         match self {
             Rock => '#',
+            Monster(_) => 'M',
         }
     }
 
-    pub fn collide(&self) -> bool {
+    pub fn collide(&mut self) -> bool {
         match self {
             Rock => true,
+            Monster(ref mut mob) => mob.hit(),
         }
     }
 }
@@ -63,6 +68,18 @@ impl Field {
 
     pub fn has_object(&self, posn: usize) -> bool {
         posn < self.0.len() && self.0[posn].object.is_some()
+    }
+
+    pub fn collide(&mut self, posn: usize) -> bool {
+        if self.has_object(posn) {
+            let status = self.0[posn].object.as_mut().unwrap().collide();
+            if !status {
+                self.0[posn].object = None;
+            }
+            status
+        } else {
+            false
+        }
     }
 
     pub fn render(&self, left: usize, right: usize) -> Vec<char> {

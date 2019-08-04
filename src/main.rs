@@ -4,12 +4,16 @@
 // distribution of this software for license terms.
 
 mod field;
+mod mob;
 mod net;
+mod random;
 mod player;
 
 pub use field::*;
+pub use mob::*;
 pub use net::*;
 pub use player::*;
+pub use random::*;
 
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
@@ -69,11 +73,7 @@ impl GameHandle {
                         };
                         let mut move_player = true;
                         if let Some(posn) = offset(player.posn, off) {
-                            if let Some(ref obj) = game.field[posn].object {
-                                if obj.collide() {
-                                    move_player = false;
-                                }
-                            }
+                            move_player = !game.field.collide(posn);
                         }
                         if move_player {
                             if player.move_player(off) {
