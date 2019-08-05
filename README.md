@@ -44,9 +44,16 @@ will perish together.
 ## How To Play
 
 This is a multiplayer Telnet text game. You will need a
-Telnet client to play it. Once you have one of those, telnet
-to po8.org port 10001. You will join a game if one is in
-progress, or start a new one if you are the first one there.
+Telnet client to play it. Linux and Mac have easy access to
+telnet: it may already be installed on your system. For
+Windows, there is a Telnet client built in, but you have to
+enable it.
+
+![Windows Telnet Feature](windows-telnet-feature.png)
+
+Once you have telnet, `telnet po8.org 10001`. You will join
+a game if one is in progress, or start a new one if you are
+the first one there.
 
 The display is only one line. It uses only one control
 character (carriage return) other than ordinary text, so it
@@ -137,6 +144,9 @@ constraints. But this was more fun.
 ## Acknowledgments
 
 Thanks to Bean for the excellent game idea.
+
+Thanks to Simon Niklaus for testing and for the help with
+Windows. The screenshot above is his.
 
 This game would not have been possible in the given time
 without the excellent Rust

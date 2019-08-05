@@ -292,11 +292,11 @@ impl GameHandle {
         let listener = TcpListener::bind("0.0.0.0:10001").unwrap();
         loop {
             match listener.accept() {
-                Ok((socket, addr)) => {
+                Ok((mut socket, addr)) => {
                     println!("new client: {:?}", addr);
                     let handle = self.clone();
                     let _ = std::thread::spawn(move || {
-                        let mut conn = Connection::new(socket);
+                        let mut conn = Connection::new(socket.try_clone().unwrap());
                         match conn.negotiate_winsize() {
                             Ok(true) => (),
                             Ok(false) => eprintln!("no winsize"),
@@ -308,9 +308,10 @@ impl GameHandle {
                             Ok(true) => (),
                             e => {
                                 eprintln!("cannot set up terminal: {:?}", e);
-                                writeln!(conn,
-    "Your telnet client cannot be put in no-echo single-character mode\n
-     as needed to play the game. Apologies.").unwrap();
+                                socket.write(
+    b"Your telnet client cannot be put in no-echo single-character mode\n
+     as needed to play the game. Apologies.\n").unwrap();
+                                socket.flush().unwrap();
                                 return;
                             }
                         }
