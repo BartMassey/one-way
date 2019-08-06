@@ -110,7 +110,13 @@ impl GameHandle {
             player_id
         });
         loop {
-            let optcmd = remote.read().unwrap();
+            let optcmd = match remote.read() {
+                Ok(cmd) => cmd,
+                Err(e) => {
+                    eprintln!("net read error: {}", e);
+                    return;
+                }
+            };
             if let Some(cmd) = optcmd {
                 let cmd = cmd.trim();
                 match cmd {

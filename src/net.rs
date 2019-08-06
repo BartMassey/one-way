@@ -308,7 +308,7 @@ impl GameHandle {
                             Ok(true) => (),
                             e => {
                                 eprintln!("cannot set up terminal: {:?}", e);
-                                socket.write(
+                                socket.write_all(
     b"Your telnet client cannot be put in no-echo single-character mode\n
      as needed to play the game. Apologies.\n").unwrap();
                                 socket.flush().unwrap();
