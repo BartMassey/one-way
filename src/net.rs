@@ -9,8 +9,6 @@ use telnet::*;
 use NegotiationAction::*;
 use TelnetOption::*;
 
-use byteorder::{BigEndian, ByteOrder};
-
 use core::time::*;
 use std::collections::HashSet;
 use std::io::*;
@@ -110,7 +108,7 @@ impl Connection {
                 Ok(true)
             }
             Negotiation(Dont, SuppressGoAhead) => {
-                //eprintln!("terminal wont cbreak");
+                eprintln!("terminal wont cbreak");
                 self.cbreak = false;
                 Ok(false)
             }
@@ -133,7 +131,7 @@ impl Connection {
                 Ok(true)
             }
             Negotiation(Dont, Echo) => {
-                //eprintln!("terminal will echo");
+                eprintln!("terminal will echo");
                 self.echo = true;
                 Ok(false)
             }
@@ -201,15 +199,17 @@ impl Connection {
                     self.telnet.subnegotiate(TelnetOption::NAWS, &[]);
                 }
                 Negotiation(Wont, NAWS) => {
-                    //eprintln!("terminal wont NAWS");
+                    eprintln!("terminal wont NAWS");
                     self.width = None;
                     self.height = None;
                     return Ok(false);
                 }
                 Subnegotiation(NAWS, buf) => {
                     assert_eq!(buf.len(), 4);
-                    let width: u16 = BigEndian::read_u16(&buf[0..2]);
-                    let height: u16 = BigEndian::read_u16(&buf[2..4]);
+                    #[allow(clippy::cast_lossless)]
+                    let width: u16 = (buf[0] as u16) << 8 | buf[1] as u16;
+                    #[allow(clippy::cast_lossless)]
+                    let height: u16 = (buf[2] as u16) << 8 | buf[3] as u16;
                     //eprintln!("terminal winsize {} {}", width, height);
                     if width > 0 {
                         self.width = Some(width);

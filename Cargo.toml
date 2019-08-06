@@ -12,5 +12,4 @@ license-file = "LICENSE"
 
 [dependencies]
 telnet = "0.1.4"
-byteorder = "1.3.2"
 rand = "0.7.0"
