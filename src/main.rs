@@ -79,14 +79,6 @@ impl Game {
 struct GameHandle(Arc<Mutex<Game>>);
 
 impl GameHandle {
-    fn init_game(
-        &mut self,
-        mut action: impl FnMut(&mut Game) -> u64,
-    ) -> u64 {
-        let mut state = self.0.borrow_mut().lock().unwrap();
-        action(&mut state)
-    }
-
     fn with_game<T>(
         &mut self,
         mut action: impl FnMut(&mut Game) -> T,
@@ -96,7 +88,7 @@ impl GameHandle {
     }
 
     pub fn play(mut self, mut remote: Connection) {
-        let player_id = self.init_game(|game| {
+        let player_id = self.with_game(|game| {
             let player_id = game.next_player_id + 1;
             game.next_player_id = player_id;
             let mut player = Player::new(remote.width);
