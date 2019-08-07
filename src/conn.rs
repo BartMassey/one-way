@@ -3,15 +3,13 @@
 // Please see the file LICENSE in the source
 // distribution of this software for license terms.
 
-use crate::*;
-
 use telnet::*;
 use NegotiationAction::*;
 use TelnetOption::*;
 
 use core::time::*;
 use std::collections::HashSet;
-use std::io::*;
+use std::io::{self, *};
 use std::net::*;
 
 // Terminal type information from
@@ -275,26 +273,13 @@ impl Connection {
             }
         }
     }
-}
 
-impl Write for Connection {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.telnet.write(buf)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
-impl GameHandle {
-    pub fn run(self) -> ! {
+    pub fn listen() {
         let listener = TcpListener::bind("0.0.0.0:10001").unwrap();
         loop {
             match listener.accept() {
                 Ok((mut socket, addr)) => {
                     println!("new client: {:?}", addr);
-                    let handle = self.clone();
                     let _ = std::thread::spawn(move || {
                         let mut conn = Connection::new(socket.try_clone().unwrap());
                         match conn.negotiate_winsize() {
@@ -318,7 +303,7 @@ impl GameHandle {
                         // Don't currently need ANSI.
                         // assert!(conn.negotiate_ansi().unwrap());
                         conn.set_timeout(Some(100));
-                        handle.play(conn);
+                        crate::GameHandle::default().play(conn);
                     });
                 }
                 Err(e) => {
@@ -328,3 +313,15 @@ impl GameHandle {
         }
     }
 }
+
+impl Write for Connection {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.telnet.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+

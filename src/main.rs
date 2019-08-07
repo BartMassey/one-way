@@ -3,15 +3,17 @@
 // Please see the file LICENSE in the source
 // distribution of this software for license terms.
 
+mod conn;
 mod field;
+mod game;
 mod mob;
-mod net;
 mod player;
 mod random;
 
+pub use conn::*;
 pub use field::*;
+pub use game::*;
 pub use mob::*;
-pub use net::*;
 pub use player::*;
 pub use random::*;
 
@@ -22,58 +24,6 @@ pub use std::sync::{Arc, Mutex};
 
 pub const MAX_HEALTH: u64 = 100;
 pub const DOOR_POSN: usize = 500;
-
-struct Game {
-    next_player_id: u64,
-    players: HashMap<u64, Player>,
-    field: Field,
-    turns: u64,
-    nmonsters: u64,
-    health: u64,
-}
-
-impl Default for Game {
-    fn default() -> Self {
-        Game {
-            next_player_id: 1,
-            players: HashMap::default(),
-            field: Field::default(),
-            turns: 0,
-            nmonsters: 0,
-            health: MAX_HEALTH,
-        }
-    }
-}
-
-impl Game {
-    fn turn(&mut self) {
-        self.turns += 1;
-
-        let len = self.field.len() as u64;
-        let nmonsters = self.nmonsters;
-        if nmonsters < len / 20 && nmonsters < self.turns / 5 {
-            let posn = random(len) as usize;
-            if !self.field.has_object(posn) {
-                self.field[posn].object =
-                    Some(Object::Monster(Mob::default()));
-                self.nmonsters += 1;
-            }
-        }
-
-        for (_, p) in self.players.iter() {
-            for &posn in &[p.posn - 1, p.posn + 1] {
-                if self.field.has_monster(posn) && self.health > 0 {
-                    self.health -= 1;
-                }
-            }
-        }
-    }
-
-    fn rest(&mut self) {
-        let health = self.health;
-        self.health = MAX_HEALTH.min(health + random(2));
-    }
-}
 
 #[derive(Default, Clone)]
 struct GameHandle(Arc<Mutex<Game>>);
@@ -213,5 +163,5 @@ impl GameHandle {
 }
 
 fn main() {
-    GameHandle::default().run();
+    Connection::listen();
 }
