@@ -274,12 +274,15 @@ impl Connection {
         }
     }
 
-    pub fn listen() {
+    pub fn listen<T>(runner: T)
+        where T: RunConnection + Clone + Send + 'static
+    {
         let listener = TcpListener::bind("0.0.0.0:10001").unwrap();
         loop {
             match listener.accept() {
                 Ok((mut socket, addr)) => {
                     println!("new client: {:?}", addr);
+                    let runner = runner.clone();
                     let _ = std::thread::spawn(move || {
                         let mut conn = Connection::new(socket.try_clone().unwrap());
                         match conn.negotiate_winsize() {
@@ -303,7 +306,7 @@ impl Connection {
                         // Don't currently need ANSI.
                         // assert!(conn.negotiate_ansi().unwrap());
                         conn.set_timeout(Some(100));
-                        crate::GameHandle::default().play(conn);
+                        runner.run_connection(conn);
                     });
                 }
                 Err(e) => {
@@ -312,6 +315,10 @@ impl Connection {
             }
         }
     }
+}
+
+pub trait RunConnection {
+    fn run_connection(self, conn: Connection);
 }
 
 impl Write for Connection {

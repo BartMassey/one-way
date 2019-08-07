@@ -162,6 +162,12 @@ impl GameHandle {
     }
 }
 
+impl RunConnection for GameHandle {
+    fn run_connection(self, conn: Connection) {
+        self.play(conn);
+    }
+}
+
 fn main() {
-    Connection::listen();
+    Connection::listen(GameHandle::default());
 }
