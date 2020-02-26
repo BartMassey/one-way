@@ -45,7 +45,6 @@ impl Loc {
     pub fn top(&self) -> Option<&Object> {
         self.object
             .as_ref()
-            .and_then(Some)
             .or_else(|| self.floor.as_ref())
     }
 
