@@ -51,7 +51,6 @@ enable it.
 
 ![Windows Telnet Feature](windows-telnet-feature.png)
 
-~~~Once you have telnet, `telnet po8.org 10001`.~~~
 There is currently no official server. Once you have built
 and installed this code, telnet to port 10001 on the server
 machine. You will join
