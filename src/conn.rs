@@ -52,12 +52,7 @@ pub struct TelnetError(String);
 
 impl std::fmt::Display for TelnetError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}: {}",
-            <Self as std::error::Error>::description(self),
-            self.0
-        )
+        write!(f, "telnet error: {}", self.0)
     }
 }
 
