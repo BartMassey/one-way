@@ -43,6 +43,9 @@ pub struct Loc {
 
 impl Loc {
     pub fn top(&self) -> Option<&Object> {
+        // XXX I think the closure is really needed, but
+        // Clippy doesn't like it.
+        #[allow(clippy::unnecessary_lazy_evaluations)]
         self.object
             .as_ref()
             .or_else(|| self.floor.as_ref())
@@ -81,11 +84,7 @@ impl Field {
     }
 
     pub fn has_monster(&self, posn: usize) -> bool {
-        if let Some(Monster(_)) = self[posn].object {
-            true
-        } else {
-            false
-        }
+        matches!(self[posn].object, Some(Monster(_)))
     }
 
     pub fn collide(&mut self, posn: usize) -> bool {
@@ -131,11 +130,12 @@ impl IndexMut<usize> for Field {
 
 impl Default for Field {
     fn default() -> Self {
-        let mut field = Vec::new();
-        field.push(Loc {
-            object: Some(Rock),
-            floor: None,
-        });
+        let field = vec![
+            Loc {
+                object: Some(Rock),
+                floor: None,
+            }
+        ];
         let mut field = Field(field);
         field.insert_floor(Door, DOOR_POSN);
         field
