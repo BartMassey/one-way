@@ -46,9 +46,7 @@ impl Loc {
         // XXX I think the closure is really needed, but
         // Clippy doesn't like it.
         #[allow(clippy::unnecessary_lazy_evaluations)]
-        self.object
-            .as_ref()
-            .or_else(|| self.floor.as_ref())
+        self.object.as_ref().or_else(|| self.floor.as_ref())
     }
 
     pub fn render(&self) -> char {
@@ -130,12 +128,10 @@ impl IndexMut<usize> for Field {
 
 impl Default for Field {
     fn default() -> Self {
-        let field = vec![
-            Loc {
-                object: Some(Rock),
-                floor: None,
-            }
-        ];
+        let field = vec![Loc {
+            object: Some(Rock),
+            floor: None,
+        }];
         let mut field = Field(field);
         field.insert_floor(Door, DOOR_POSN);
         field

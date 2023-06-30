@@ -29,10 +29,7 @@ pub const DOOR_POSN: usize = 500;
 struct GameHandle(Arc<Mutex<Game>>);
 
 impl GameHandle {
-    fn with_game<T>(
-        &mut self,
-        mut action: impl FnMut(&mut Game) -> T,
-    ) -> T {
+    fn with_game<T>(&mut self, mut action: impl FnMut(&mut Game) -> T) -> T {
         let mut state = self.0.borrow_mut().lock().unwrap();
         action(&mut state)
     }
@@ -63,8 +60,7 @@ impl GameHandle {
                 let cmd = cmd.trim();
                 match cmd {
                     "h" | "l" => self.with_game(|game| {
-                        let player =
-                            game.players.get_mut(&player_id).unwrap();
+                        let player = game.players.get_mut(&player_id).unwrap();
                         let off = match cmd {
                             "h" => -1,
                             "l" => 1,
@@ -75,9 +71,7 @@ impl GameHandle {
                             move_player = !game.field.collide(posn);
                         }
                         if move_player && player.move_player(off) {
-                            game.field.establish(
-                                player.posn + Player::MARGIN,
-                            );
+                            game.field.establish(player.posn + Player::MARGIN);
                         }
                     }),
                     "." => self.with_game(|game| game.rest()),
@@ -85,19 +79,11 @@ impl GameHandle {
                         self.with_game(|game| {
                             game.players.remove(&player_id).unwrap();
                             if game.players.is_empty() {
-                                writeln!(
-                                    remote,
-                                    "\rno more players, new game    \r"
-                                )
-                                .unwrap();
+                                writeln!(remote, "\rno more players, new game    \r").unwrap();
                                 *game = Game::default();
                                 return;
                             }
-                            writeln!(
-                                remote,
-                                "\ryou quit, how sad    \r"
-                            )
-                            .unwrap();
+                            writeln!(remote, "\ryou quit, how sad    \r").unwrap();
                         });
                         return;
                     }
@@ -107,8 +93,7 @@ impl GameHandle {
             }
             let done = self.with_game(|game| {
                 if game.health == 0 {
-                    writeln!(remote, "\rboard wipe, game over    \r")
-                        .unwrap();
+                    writeln!(remote, "\rboard wipe, game over    \r").unwrap();
                     game.players.remove(&player_id).unwrap();
                     if game.players.is_empty() {
                         *game = Game::default();
@@ -119,13 +104,11 @@ impl GameHandle {
                 if player.posn >= DOOR_POSN {
                     game.players.remove(&player_id).unwrap();
                     if game.players.is_empty() {
-                        writeln!(remote, "\ry'all escaped, win!    \r")
-                            .unwrap();
+                        writeln!(remote, "\ry'all escaped, win!    \r").unwrap();
                         *game = Game::default();
                         return true;
                     }
-                    writeln!(remote, "\ryou escaped, one down    \r")
-                        .unwrap();
+                    writeln!(remote, "\ryou escaped, one down    \r").unwrap();
                     return true;
                 }
                 // Absolute position of player in field coords.
@@ -147,8 +130,7 @@ impl GameHandle {
                 let posn = player.posn;
                 if posn != player.posn_cache || render != player.display_cache {
                     write!(remote, "\r{}", render).unwrap();
-                    write!(remote, "\r{}", &render[0..posn - left])
-                        .unwrap();
+                    write!(remote, "\r{}", &render[0..posn - left]).unwrap();
                     let player = game.players.get_mut(&player_id).unwrap();
                     player.display_cache = render;
                     player.posn_cache = posn;

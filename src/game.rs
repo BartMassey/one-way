@@ -23,8 +23,7 @@ impl Game {
         if nmonsters < len / 20 && nmonsters < self.turns / 5 {
             let posn = random(len) as usize;
             if !self.field.has_object(posn) {
-                self.field[posn].object =
-                    Some(Object::Monster(Mob::default()));
+                self.field[posn].object = Some(Object::Monster(Mob::default()));
                 self.nmonsters += 1;
             }
         }

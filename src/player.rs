@@ -36,10 +36,7 @@ impl Player {
             self.posn = posn;
             if let Some(left) = offset(self.left, dirn) {
                 let margin = Player::MARGIN;
-                self.left = left
-                    .min(self.width as usize - margin)
-                    .max(margin)
-                    .min(posn);
+                self.left = left.min(self.width as usize - margin).max(margin).min(posn);
             } else {
                 self.left = 0;
             }

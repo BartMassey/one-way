@@ -5,15 +5,13 @@
 
 use telnet::{
     Action::*,
-    Event,
-    Telnet,
-    TelnetError,
+    Event, Telnet, TelnetError,
     TelnetOption::{self, *},
 };
 
 use core::time::*;
 use std::collections::HashSet;
-use std::io::{self, Write, ErrorKind};
+use std::io::{self, ErrorKind, Write};
 use std::net::*;
 
 // Terminal type information from
@@ -49,12 +47,8 @@ pub struct Connection {
 }
 
 fn telnet_io_error(te: TelnetError) -> io::Error {
-    io::Error::new(
-        ErrorKind::Other,
-        te,
-    )
+    io::Error::new(ErrorKind::Other, te)
 }
-
 
 impl Connection {
     pub fn new(stream: TcpStream) -> Connection {
@@ -73,7 +67,9 @@ impl Connection {
     }
 
     pub fn negotiate_cbreak(&mut self) -> io::Result<bool> {
-        self.telnet.negotiate(&Will, SuppressGoAhead).map_err(telnet_io_error)?;
+        self.telnet
+            .negotiate(&Will, SuppressGoAhead)
+            .map_err(telnet_io_error)?;
         let event = self.get_event()?;
         use Event::*;
         match event {
@@ -96,7 +92,9 @@ impl Connection {
 
     pub fn negotiate_noecho(&mut self) -> io::Result<bool> {
         // XXX *We* will echo, so terminal should not.
-        self.telnet.negotiate(&Will, Echo).map_err(telnet_io_error)?;
+        self.telnet
+            .negotiate(&Will, Echo)
+            .map_err(telnet_io_error)?;
         let event = self.get_event()?;
         use Event::*;
         match event {
@@ -136,9 +134,7 @@ impl Connection {
                 }
                 Subnegotiation(TTYPE, buf) => {
                     assert_eq!(buf[0], IS);
-                    let ttype = std::str::from_utf8(&buf[1..])
-                        .unwrap()
-                        .to_string();
+                    let ttype = std::str::from_utf8(&buf[1..]).unwrap().to_string();
                     for good_ttype in TTYPES {
                         let ttype = ttype.to_lowercase();
                         if ttype.starts_with(*good_ttype) {
@@ -154,7 +150,8 @@ impl Connection {
                     }
                     //eprintln!("unloved terminal: {}", ttype);
                     self.ttypes.insert(ttype);
-                    self.telnet.subnegotiate(TTYPE, &[SEND])
+                    self.telnet
+                        .subnegotiate(TTYPE, &[SEND])
                         .map_err(telnet_io_error)?;
                 }
                 event => {
@@ -173,7 +170,8 @@ impl Connection {
             match event {
                 Negotiation(Will, NAWS) => {
                     //eprintln!("starting NAWS negotiation");
-                    self.telnet.subnegotiate(TelnetOption::NAWS, &[])
+                    self.telnet
+                        .subnegotiate(TelnetOption::NAWS, &[])
                         .map_err(telnet_io_error)?;
                 }
                 Negotiation(Wont, NAWS) => {
@@ -228,34 +226,25 @@ impl Connection {
                 Data(buf) => match String::from_utf8(buf.to_vec()) {
                     Ok(s) => return Ok(Some(s)),
                     Err(e) => {
-                        return Err(io::Error::new(
-                            ErrorKind::InvalidData,
-                            e,
-                        ));
+                        return Err(io::Error::new(ErrorKind::InvalidData, e));
                     }
                 },
                 TimedOut => return Ok(None),
                 NoData => (),
                 Error(err) => {
-                    return Err(io::Error::new(
-                        ErrorKind::InvalidData,
-                        err,
-                    ));
+                    return Err(io::Error::new(ErrorKind::InvalidData, err));
                 }
-                Subnegotiation(subneg, buf) => eprintln!(
-                    "telnet: unexpected subnegotiation: {:?} {:?}",
-                    subneg, buf
-                ),
-                neg => eprintln!(
-                    "telnet: unexpected negotation: {:?}",
-                    neg
-                ),
+                Subnegotiation(subneg, buf) => {
+                    eprintln!("telnet: unexpected subnegotiation: {:?} {:?}", subneg, buf)
+                }
+                neg => eprintln!("telnet: unexpected negotation: {:?}", neg),
             }
         }
     }
 
     pub fn listen<T>(runner: T)
-        where T: RunConnection + Clone + Send + 'static
+    where
+        T: RunConnection + Clone + Send + 'static,
     {
         let listener = TcpListener::bind("0.0.0.0:10001").unwrap();
         loop {
@@ -270,7 +259,8 @@ impl Connection {
                             Ok(false) => eprintln!("no winsize"),
                             Err(e) => eprintln!("no winsize: {}", e),
                         }
-                        let termok = conn.negotiate_cbreak()
+                        let termok = conn
+                            .negotiate_cbreak()
                             .and_then(|_| conn.negotiate_noecho());
                         match termok {
                             Ok(true) => (),
@@ -310,5 +300,3 @@ impl Write for Connection {
         Ok(())
     }
 }
-
-
