@@ -66,10 +66,12 @@ impl GameHandle {
                             "l" => 1,
                             _ => panic!("internal error: bad cmd"),
                         };
-                        let mut move_player = true;
-                        if let Some(posn) = offset(player.posn, off) {
-                            move_player = !game.field.collide(posn);
-                        }
+                        let move_player =
+                            if let Some(posn) = offset(player.posn, off) {
+                                !game.field.collide(posn)
+                            } else {
+                                false
+                            };
                         if move_player && player.move_player(off) {
                             game.field.establish(player.posn + Player::MARGIN);
                         }
