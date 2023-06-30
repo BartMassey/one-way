@@ -3,13 +3,17 @@
 // Please see the file LICENSE in the source
 // distribution of this software for license terms.
 
-use telnet::*;
-use NegotiationAction::*;
-use TelnetOption::*;
+use telnet::{
+    Action::*,
+    Event,
+    Telnet,
+    TelnetError,
+    TelnetOption::{self, *},
+};
 
 use core::time::*;
 use std::collections::HashSet;
-use std::io::{self, *};
+use std::io::{self, Write, ErrorKind};
 use std::net::*;
 
 // Terminal type information from
@@ -32,40 +36,10 @@ const TTYPES: &[&str] = &[
 const SEND: u8 = 1;
 const IS: u8 = 0;
 
-#[derive(Debug)]
-pub struct NegotiationError;
-
-impl std::fmt::Display for NegotiationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "negotiation error")
-    }
-}
-
-impl std::error::Error for NegotiationError {
-    fn description(&self) -> &str {
-        "negotiation not expected"
-    }
-}
-
-#[derive(Debug)]
-pub struct TelnetError(String);
-
-impl std::fmt::Display for TelnetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "telnet error: {}", self.0)
-    }
-}
-
-impl std::error::Error for TelnetError {
-    fn description(&self) -> &str {
-        "telnet error"
-    }
-}
-
 pub struct Connection {
     telnet: Telnet,
     ttypes: HashSet<String>,
-    next_event: Option<TelnetEvent>,
+    next_event: Option<Event>,
     timeout: Option<Duration>,
     pub cbreak: bool,
     pub echo: bool,
@@ -73,6 +47,14 @@ pub struct Connection {
     pub width: Option<u16>,
     pub height: Option<u16>,
 }
+
+fn telnet_io_error(te: TelnetError) -> io::Error {
+    io::Error::new(
+        ErrorKind::Other,
+        te,
+    )
+}
+
 
 impl Connection {
     pub fn new(stream: TcpStream) -> Connection {
@@ -91,9 +73,9 @@ impl Connection {
     }
 
     pub fn negotiate_cbreak(&mut self) -> io::Result<bool> {
-        self.telnet.negotiate(Will, SuppressGoAhead);
+        self.telnet.negotiate(&Will, SuppressGoAhead).map_err(telnet_io_error)?;
         let event = self.get_event()?;
-        use TelnetEvent::*;
+        use Event::*;
         match event {
             Negotiation(Do, SuppressGoAhead) => {
                 //eprintln!("terminal will cbreak");
@@ -114,9 +96,9 @@ impl Connection {
 
     pub fn negotiate_noecho(&mut self) -> io::Result<bool> {
         // XXX *We* will echo, so terminal should not.
-        self.telnet.negotiate(Will, Echo);
+        self.telnet.negotiate(&Will, Echo).map_err(telnet_io_error)?;
         let event = self.get_event()?;
-        use TelnetEvent::*;
+        use Event::*;
         match event {
             Negotiation(Do, Echo) => {
                 //eprintln!("terminal wont echo");
@@ -136,15 +118,16 @@ impl Connection {
     }
 
     pub fn negotiate_ansi(&mut self) -> io::Result<bool> {
-        self.telnet.negotiate(Do, TTYPE);
+        self.telnet.negotiate(&Do, TTYPE).map_err(telnet_io_error)?;
         loop {
             let event = self.get_event()?;
-            use TelnetEvent::*;
+            use Event::*;
             match event {
                 Negotiation(Will, TTYPE) => {
                     //eprintln!("starting ANSI negotiation");
                     self.telnet
-                        .subnegotiate(TelnetOption::TTYPE, &[SEND]);
+                        .subnegotiate(TelnetOption::TTYPE, &[SEND])
+                        .map_err(telnet_io_error)?;
                 }
                 Negotiation(Wont, TTYPE) => {
                     //eprintln!("terminal wont ANSI");
@@ -171,7 +154,8 @@ impl Connection {
                     }
                     //eprintln!("unloved terminal: {}", ttype);
                     self.ttypes.insert(ttype);
-                    self.telnet.subnegotiate(TTYPE, &[SEND]);
+                    self.telnet.subnegotiate(TTYPE, &[SEND])
+                        .map_err(telnet_io_error)?;
                 }
                 event => {
                     self.next_event = Some(event);
@@ -182,14 +166,15 @@ impl Connection {
     }
 
     pub fn negotiate_winsize(&mut self) -> io::Result<bool> {
-        self.telnet.negotiate(Do, NAWS);
+        self.telnet.negotiate(&Do, NAWS).map_err(telnet_io_error)?;
         loop {
             let event = self.get_event()?;
-            use TelnetEvent::*;
+            use Event::*;
             match event {
                 Negotiation(Will, NAWS) => {
                     //eprintln!("starting NAWS negotiation");
-                    self.telnet.subnegotiate(TelnetOption::NAWS, &[]);
+                    self.telnet.subnegotiate(TelnetOption::NAWS, &[])
+                        .map_err(telnet_io_error)?;
                 }
                 Negotiation(Wont, NAWS) => {
                     eprintln!("terminal wont NAWS");
@@ -224,7 +209,7 @@ impl Connection {
         self.timeout = ms.map(Duration::from_millis);
     }
 
-    fn get_event(&mut self) -> io::Result<TelnetEvent> {
+    fn get_event(&mut self) -> io::Result<Event> {
         if let Some(event) = self.next_event.take() {
             self.next_event = None;
             return Ok(event);
@@ -238,7 +223,7 @@ impl Connection {
     pub fn read(&mut self) -> io::Result<Option<String>> {
         loop {
             let event = self.get_event()?;
-            use TelnetEvent::*;
+            use Event::*;
             match event {
                 Data(buf) => match String::from_utf8(buf.to_vec()) {
                     Ok(s) => return Ok(Some(s)),
@@ -251,10 +236,10 @@ impl Connection {
                 },
                 TimedOut => return Ok(None),
                 NoData => (),
-                Error(msg) => {
+                Error(err) => {
                     return Err(io::Error::new(
                         ErrorKind::InvalidData,
-                        TelnetError(msg),
+                        err,
                     ));
                 }
                 Subnegotiation(subneg, buf) => eprintln!(
