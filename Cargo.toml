@@ -12,4 +12,4 @@ license-file = "LICENSE"
 
 [dependencies]
 telnet = "0.1.4"
-rand = "0.7.0"
+rand = "0.8.5"
