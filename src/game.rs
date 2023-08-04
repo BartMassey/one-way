@@ -10,7 +10,8 @@ pub struct Game {
     pub players: HashMap<u64, Player>,
     pub field: Field,
     pub turns: u64,
-    pub nmonsters: u64,
+    pub monsters: HashMap<u64, Mob>,
+    pub next_monster_id: u64,
     pub health: u64,
 }
 
@@ -18,13 +19,15 @@ impl Game {
     pub fn turn(&mut self) {
         self.turns += 1;
 
-        let len = self.field.len() as u64;
-        let nmonsters = self.nmonsters;
-        if nmonsters < len / 20 && nmonsters < self.turns / 5 {
-            let posn = random(len) as usize;
+        let len = self.field.len();
+        let nmonsters = self.monsters.len();
+        if nmonsters < len / 20 && nmonsters < self.turns as usize / 5 {
+            let posn = random(len as u64) as usize;
             if !self.field.has_object(posn) {
-                self.field[posn].object = Some(Object::Monster(Mob::default()));
-                self.nmonsters += 1;
+                let id = self.next_monster_id;
+                self.next_monster_id += 1;
+                self.field[posn].object = Some(Object::Monster(id));
+                self.monsters.insert(id, Mob::new(id, posn));
             }
         }
 
@@ -34,6 +37,21 @@ impl Game {
                     self.health -= 1;
                 }
             }
+        }
+
+        for m in self.monsters.values_mut() {
+            let posn = m.posn;
+            let new_posn = m.get_move();
+            if new_posn == posn {
+                continue;
+            }
+            if self.field[new_posn].top().is_some() {
+                continue;
+            }
+            assert_eq!(self.field[posn].top(), Some(&Object::Monster(m.id)));
+            self.field[posn].object = None;
+            self.field[new_posn].object = Some(Object::Monster(m.id));
+            m.posn = new_posn;
         }
     }
 
@@ -50,7 +68,8 @@ impl Default for Game {
             players: HashMap::default(),
             field: Field::default(),
             turns: 0,
-            nmonsters: 0,
+            monsters: HashMap::default(),
+            next_monster_id: 1,
             health: MAX_HEALTH,
         }
     }

@@ -67,7 +67,20 @@ impl GameHandle {
                             _ => panic!("internal error: bad cmd"),
                         };
                         if let Some(posn) = offset(player.posn, off) {
-                            if !game.field.collide(posn) && player.move_player(off) {
+                            let clear = if let Some(Object::Monster(id)) = game.field[posn].top() {
+                                let mob = game.monsters.get_mut(id).unwrap();
+                                if !mob.hit() {
+                                    // Killed the monster.
+                                    game.monsters.remove(id);
+                                    game.field[posn].object = None;
+                                    true
+                                } else {
+                                    false
+                                }
+                            } else {
+                                true
+                            };
+                            if clear && player.move_player(off) {
                                 game.field.establish(player.posn + Player::MARGIN);
                             }
                         }

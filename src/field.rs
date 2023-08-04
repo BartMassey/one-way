@@ -7,9 +7,10 @@ use crate::*;
 
 use std::ops::{Index, IndexMut};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Object {
     Rock,
-    Monster(Mob),
+    Monster(u64),
     Door,
 }
 use Object::*;
@@ -20,17 +21,6 @@ impl Object {
             Rock => '#',
             Monster(_) => 'M',
             Door => '+',
-        }
-    }
-
-    pub fn collide(&mut self) -> bool {
-        match self {
-            Rock => true,
-            Monster(ref mut mob) => mob.hit(),
-            Door => {
-                eprintln!("internal error: ran into a door");
-                false
-            }
         }
     }
 }
@@ -83,18 +73,6 @@ impl Field {
 
     pub fn has_monster(&self, posn: usize) -> bool {
         matches!(self[posn].object, Some(Monster(_)))
-    }
-
-    pub fn collide(&mut self, posn: usize) -> bool {
-        if self.has_object(posn) {
-            let status = self[posn].object.as_mut().unwrap().collide();
-            if !status {
-                self[posn].object = None;
-            }
-            status
-        } else {
-            false
-        }
     }
 
     pub fn render(&self, left: usize, right: usize) -> Vec<char> {
