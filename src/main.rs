@@ -96,6 +96,8 @@ impl GameHandle {
                     "." => self.with_game(|game| game.rest()),
                     "q" => {
                         self.with_game(|game| {
+                            let player = &game.players[&player_id];
+                            game.field[player.posn].object = None;
                             game.players.remove(&player_id).unwrap();
                             if game.players.is_empty() {
                                 writeln!(remote, "\rno more players, new game    \r").unwrap();
