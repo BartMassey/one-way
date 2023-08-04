@@ -11,6 +11,7 @@ use std::ops::{Index, IndexMut};
 pub enum Object {
     Rock,
     Monster(u64),
+    Player(u64),
     Door,
 }
 use Object::*;
@@ -20,6 +21,7 @@ impl Object {
         match self {
             Rock => '#',
             Monster(_) => 'M',
+            Player(_) => '@',
             Door => '+',
         }
     }
@@ -73,6 +75,10 @@ impl Field {
 
     pub fn has_monster(&self, posn: usize) -> bool {
         matches!(self[posn].object, Some(Monster(_)))
+    }
+
+    pub fn has_player(&self, posn: usize) -> bool {
+        matches!(self[posn].object, Some(Player(_)))
     }
 
     pub fn render(&self, left: usize, right: usize) -> Vec<char> {

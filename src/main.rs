@@ -36,15 +36,16 @@ impl GameHandle {
 
     pub fn play(mut self, mut remote: Connection) {
         let player_id = self.with_game(|game| {
-            let player_id = game.next_player_id + 1;
-            game.next_player_id = player_id;
-            let mut player = Player::new(remote.width);
+            let player_id = game.next_player_id;
+            game.next_player_id = player_id + 1;
+            let mut player = Player::new(player_id, remote.width);
             let mut posn = player.posn;
             while game.field.has_object(posn) {
                 posn += 1;
             }
             player.posn = posn;
             game.players.insert(player_id, player);
+            game.field[posn].object = Some(Object::Player(player_id));
             game.field.establish(posn + Player::MARGIN);
             player_id
         });
@@ -66,22 +67,29 @@ impl GameHandle {
                             "l" => 1,
                             _ => panic!("internal error: bad cmd"),
                         };
-                        if let Some(posn) = offset(player.posn, off) {
-                            let clear = if let Some(Object::Monster(id)) = game.field[posn].top() {
-                                let mob = game.monsters.get_mut(id).unwrap();
-                                if !mob.hit() {
-                                    // Killed the monster.
-                                    game.monsters.remove(id);
-                                    game.field[posn].object = None;
-                                    true
-                                } else {
-                                    false
+                        if let Some(new_posn) = offset(player.posn, off) {
+                            let clear = match game.field[new_posn].top() {
+                                Some(Object::Monster(id)) => {
+                                    let mob = game.monsters.get_mut(id).unwrap();
+                                    if !mob.hit() {
+                                        // Killed the monster.
+                                        game.monsters.remove(id);
+                                        game.field[new_posn].object = None;
+                                        true
+                                    } else {
+                                        false
+                                    }
                                 }
-                            } else {
-                                true
+                                Some(_) => false,
+                                _ => true,
                             };
-                            if clear && player.move_player(off) {
-                                game.field.establish(player.posn + Player::MARGIN);
+                            if clear {
+                                player.adjust_display(off);
+                                let posn = player.posn;
+                                game.field.establish(new_posn + Player::MARGIN);
+                                player.posn = new_posn;
+                                game.field[posn].object = None;
+                                game.field[new_posn].object = Some(Object::Player(player.id));
                             }
                         }
                     }),

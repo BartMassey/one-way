@@ -1,4 +1,5 @@
 pub struct Player {
+    pub id: u64,
     // Position in field coordinates.
     pub posn: usize,
     // Line width in characters.
@@ -21,8 +22,9 @@ impl Player {
     // Desired left/right margin in characters.
     pub const MARGIN: usize = 3;
 
-    pub fn new(width: Option<u16>) -> Self {
+    pub fn new(id: u64, width: Option<u16>) -> Self {
         Player {
+            id,
             posn: 1,
             left: 1,
             width: width.unwrap_or(80),
@@ -31,18 +33,16 @@ impl Player {
         }
     }
 
-    pub fn move_player(&mut self, dirn: isize) -> bool {
+    pub fn adjust_display(&mut self, dirn: isize) {
         if let Some(posn) = offset(self.posn, dirn) {
-            self.posn = posn;
             if let Some(left) = offset(self.left, dirn) {
                 let margin = Player::MARGIN;
                 self.left = left.min(self.width as usize - margin).max(margin).min(posn);
             } else {
                 self.left = 0;
             }
-            true
         } else {
-            false
+            panic!("tried to adjust display, badly");
         }
     }
 }
