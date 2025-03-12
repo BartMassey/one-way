@@ -182,10 +182,8 @@ impl Connection {
                 }
                 Subnegotiation(NAWS, buf) => {
                     assert_eq!(buf.len(), 4);
-                    #[allow(clippy::cast_lossless)]
-                    let width: u16 = (buf[0] as u16) << 8 | buf[1] as u16;
-                    #[allow(clippy::cast_lossless)]
-                    let height: u16 = (buf[2] as u16) << 8 | buf[3] as u16;
+                    let width: u16 = ((buf[0] as u16) << 8) | buf[1] as u16;
+                    let height: u16 = ((buf[2] as u16) << 8) | buf[3] as u16;
                     //eprintln!("terminal winsize {} {}", width, height);
                     if width > 0 {
                         self.width = Some(width);

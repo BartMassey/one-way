@@ -37,9 +37,7 @@ impl Mob {
                 posn - 1
             }
             1 => posn,
-            2 => {
-                posn + 1
-            }
+            2 => posn + 1,
             _ => panic!("internal error: weird mob move"),
         }
     }
