@@ -5,7 +5,7 @@
 
 [package]
 name = "one-way"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Bart Massey <bart.massey@gmail.com>"]
 edition = "2024"
 license-file = "LICENSE"
