@@ -11,5 +11,5 @@ edition = "2024"
 license-file = "LICENSE"
 
 [dependencies]
-telnet = "0.2.1"
-rand = "0.8.5"
+telnet = "0.2.3"
+rand = "0.9.0"
