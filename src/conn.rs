@@ -13,12 +13,14 @@ use telnet::{
 };
 
 use core::time::*;
+#[cfg(feature = "ansi")]
 use std::collections::HashSet;
 use std::io::{self, ErrorKind, Write};
 use std::net::*;
 
 /// Terminal type information from
 /// https://code.google.com/archive/p/bogboa/wikis/TerminalTypes.wiki
+#[cfg(feature = "ansi")]
 const TTYPES: &[&str] = &[
     "ansi",
     "xterm",
@@ -34,15 +36,15 @@ const TTYPES: &[&str] = &[
 ];
 
 /// TTYPE subnegotiation commands.
+#[cfg(feature = "ansi")]
 const SEND: u8 = 1;
+#[cfg(feature = "ansi")]
 const IS: u8 = 0;
 
 /// Connection state.
 pub struct Connection {
     /// Telnet client instance.
     telnet: Telnet,
-    /// Available terminal types for client.
-    ttypes: HashSet<String>,
     /// Lookahead telnet event for telnet negotiation.
     next_event: Option<Event>,
     /// How long to wait for a command from the client.
@@ -52,6 +54,7 @@ pub struct Connection {
     /// Terminal is will echo.
     pub echo: bool,
     /// Terminal is ansi.
+    #[cfg(feature = "ansi")]
     pub ansi: bool,
     /// Terminal width.
     pub width: Option<u16>,
@@ -70,11 +73,11 @@ impl Connection {
         let telnet = Telnet::from_stream(Box::new(stream), 256);
         Connection {
             telnet,
-            ttypes: HashSet::new(),
             next_event: None,
             timeout: None,
             cbreak: false,
             echo: true,
+            #[cfg(feature = "ansi")]
             ansi: false,
             width: None,
             height: None,
@@ -163,7 +166,11 @@ impl Connection {
     ///
     /// See also [RFC
     /// 1091](https://www.rfc-editor.org/rfc/rfc1091.html).
+    #[cfg(feature = "ansi")]
     pub fn negotiate_ansi(&mut self) -> io::Result<bool> {
+        // Seen terminal types for client. Used
+        // for loop detection.
+        let mut ttypes = HashSet::new();
         self.telnet.negotiate(&Do, TTYPE).map_err(telnet_io_error)?;
         loop {
             let event = self.get_event()?;
@@ -183,11 +190,12 @@ impl Connection {
                 Subnegotiation(TTYPE, buf) => {
                     // XXX This code is a mess, and needs miles of love.
                     assert_eq!(buf[0], IS);
-                    let ttype = std::str::from_utf8(&buf[1..]).unwrap().to_string();
+                    let ttype = String::from_utf8_lossy(&buf[1..]).into_owned();
+                    let ttype_lc = ttype.to_lowercase();
+
                     // Check terminal for ANSI-ness.
                     for good_ttype in TTYPES {
-                        let ttype = ttype.to_lowercase();
-                        if ttype.starts_with(*good_ttype) {
+                        if ttype_lc.starts_with(*good_ttype) {
                             //eprintln!("got ANSI terminal");
                             self.ansi = true;
                             return Ok(true);
@@ -195,7 +203,7 @@ impl Connection {
                     }
 
                     // Check for having cycled around.
-                    if self.ttypes.contains(&ttype) {
+                    if ttypes.contains(&ttype) {
                         //eprintln!("terminal cannot ANSI");
                         self.ansi = false;
                         return Ok(false);
@@ -203,7 +211,7 @@ impl Connection {
 
                     // Remember the unwanted terminal type.
                     //eprintln!("unloved terminal: {}", ttype);
-                    self.ttypes.insert(ttype);
+                    ttypes.insert(ttype);
                     self.telnet
                         .subnegotiate(TTYPE, &[SEND])
                         .map_err(telnet_io_error)?;
