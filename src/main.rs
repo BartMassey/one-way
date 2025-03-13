@@ -60,7 +60,7 @@ pub const DOOR_POSN: usize = 500;
 /// refcount will go to zero only when the game is
 /// over. Individual client proxies must lock it to act.
 #[derive(Default, Clone)]
-struct GameHandle(Arc<Mutex<Game>>);
+pub struct GameHandle(Arc<Mutex<Game>>);
 
 impl GameHandle {
     /// Execute some game action code under the state lock.
@@ -235,12 +235,6 @@ impl GameHandle {
                 return;
             }
         }
-    }
-}
-
-impl RunConnection for GameHandle {
-    fn run_connection(self, conn: Connection) {
-        self.play(conn);
     }
 }
 

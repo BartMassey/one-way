@@ -6,6 +6,8 @@
 //! Handle a player connection, including telnet processing
 //! and setup as well as starting game play.
 
+use crate::GameHandle;
+
 use telnet::{
     Action::*,
     Event, Telnet, TelnetError,
@@ -316,10 +318,7 @@ impl Connection {
 
     /// Listen for client connections and attach them to the
     /// game via the given runner.
-    pub fn listen<T>(runner: T)
-    where
-        T: RunConnection + Clone + Send + 'static,
-    {
+    pub fn listen(runner: GameHandle) {
         let listener = TcpListener::bind("0.0.0.0:10001").unwrap();
         loop {
             match listener.accept() {
@@ -350,7 +349,7 @@ impl Connection {
                         // Don't currently need ANSI.
                         // assert!(conn.negotiate_ansi().unwrap());
                         conn.set_timeout(Some(100));
-                        runner.run_connection(conn);
+                        runner.play(conn);
                     });
                 }
                 Err(e) => {
@@ -359,12 +358,6 @@ impl Connection {
             }
         }
     }
-}
-
-/// Can take the connection and use it in the game.
-pub trait RunConnection {
-    /// Take the connection and use it in the game.
-    fn run_connection(self, conn: Connection);
 }
 
 impl Write for Connection {
