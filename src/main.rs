@@ -26,19 +26,23 @@ mod field;
 mod game;
 mod mob;
 mod player;
-mod random;
 
 pub use conn::*;
 pub use field::*;
 pub use game::*;
 pub use mob::*;
 pub use player::*;
-pub use random::*;
 
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 pub use std::io::{self, Write};
 pub use std::sync::{Arc, Mutex};
+
+use fastrand::u64 as random_u64;
+
+pub fn random(r: u64) -> u64 {
+    random_u64(0..r)
+}
 
 /// The "health" and other player characteristics are common
 /// across all players in the instance; the individual
