@@ -3,22 +3,37 @@
 // Please see the file LICENSE in the source
 // distribution of this software for license terms.
 
+//! The overall game state for the running game. This
+//! includes the shared player stats, the monster records
+//! the playfield, etc. Also methods to update the state.
+
 use crate::*;
 
+/// Game state.
 pub struct Game {
+    /// Player ID for *next* client to enter.
     pub next_player_id: u64,
+    /// Player ID map.
     pub players: HashMap<u64, Player>,
+    /// Playfield.
     pub field: Field,
+    /// Clock: turns passed.
     pub turns: u64,
+    /// MOB ID map.
     pub monsters: HashMap<u64, Mob>,
+    /// Player ID for *next* MOB to enter.
     pub next_monster_id: u64,
+    /// Shared player health.
     pub health: u64,
 }
 
 impl Game {
+    /// Update non-player game state for a new tick.
     pub fn turn(&mut self) {
+        // Bump the clock.
         self.turns += 1;
 
+        // Spawn MOBs as needed.
         let len = self.field.len();
         let nmonsters = self.monsters.len();
         if nmonsters < len / 20 && nmonsters < self.turns as usize / 5 {
@@ -31,6 +46,7 @@ impl Game {
             }
         }
 
+        // Resolve MOB attacks.
         for (_, p) in self.players.iter() {
             for &posn in &[p.posn - 1, p.posn + 1] {
                 if self.field.has_monster(posn) && self.health > 0 {
@@ -39,6 +55,7 @@ impl Game {
             }
         }
 
+        // Move MOBs.
         for m in self.monsters.values_mut() {
             let posn = m.posn;
             let new_posn = m.get_move();
@@ -55,6 +72,7 @@ impl Game {
         }
     }
 
+    /// Player rest actions heal the player.
     pub fn rest(&mut self) {
         let health = self.health;
         self.health = MAX_HEALTH.min(health + random(2));

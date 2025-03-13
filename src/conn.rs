@@ -3,6 +3,9 @@
 // Please see the file LICENSE in the source
 // distribution of this software for license terms.
 
+//! Handle a player connection, including telnet processing
+//! and setup as well as starting game play.
+
 use telnet::{
     Action::*,
     Event, Telnet, TelnetError,
@@ -14,8 +17,8 @@ use std::collections::HashSet;
 use std::io::{self, ErrorKind, Write};
 use std::net::*;
 
-// Terminal type information from
-// https://code.google.com/archive/p/bogboa/wikis/TerminalTypes.wiki
+/// Terminal type information from
+/// https://code.google.com/archive/p/bogboa/wikis/TerminalTypes.wiki
 const TTYPES: &[&str] = &[
     "ansi",
     "xterm",
@@ -30,27 +33,39 @@ const TTYPES: &[&str] = &[
     "tinyfugue",
 ];
 
-// TTYPE subnegotiation commands.
+/// TTYPE subnegotiation commands.
 const SEND: u8 = 1;
 const IS: u8 = 0;
 
+/// Connection state.
 pub struct Connection {
+    /// Telnet client instance.
     telnet: Telnet,
+    /// Available terminal types for client.
     ttypes: HashSet<String>,
+    /// Lookahead telnet event for telnet negotiation.
     next_event: Option<Event>,
+    /// How long to wait for a command from the client.
     timeout: Option<Duration>,
+    /// Terminal is cbreak.
     pub cbreak: bool,
+    /// Terminal is will echo.
     pub echo: bool,
+    /// Terminal is ansi.
     pub ansi: bool,
+    /// Terminal width.
     pub width: Option<u16>,
+    /// Terminal height.
     pub height: Option<u16>,
 }
 
+/// Wrap a telnet error as an IO error.
 fn telnet_io_error(te: TelnetError) -> io::Error {
     io::Error::new(ErrorKind::Other, te)
 }
 
 impl Connection {
+    /// Make a new connection state for a stream.
     pub fn new(stream: TcpStream) -> Connection {
         let telnet = Telnet::from_stream(Box::new(stream), 256);
         Connection {
@@ -66,6 +81,16 @@ impl Connection {
         }
     }
 
+    /// Turn on "cbreak": that is, make sure that each
+    /// character typed in the telnet client is immediately
+    /// sent to us.
+    ///
+    /// The SUPRESS-GO-AHEAD telnet option turns the client
+    /// into a full-duplex terminal that does not wait for a
+    /// server GO-AHEAD before sending characters.  Client
+    /// characters are to be transmitted as soon as
+    /// available.  See [RFC
+    /// 858](https://datatracker.ietf.org/doc/html/rfc858).
     pub fn negotiate_cbreak(&mut self) -> io::Result<bool> {
         self.telnet
             .negotiate(&Will, SuppressGoAhead)
@@ -84,12 +109,21 @@ impl Connection {
                 Ok(false)
             }
             event => {
+                // Buffer peek.
                 self.next_event = Some(event);
                 Ok(false)
             }
         }
     }
 
+    /// Turn on "noecho": that is, make sure that the client
+    /// does not echo typed characters itself. This will allow
+    /// us to send the game state without interference.
+    ///
+    /// The ECHO telnet option tells the client that *we*
+    /// will echo characters so *they* should not. This is
+    /// of course mightily confusing. See [RFC
+    /// 857](https://datatracker.ietf.org/doc/html/rfc857).
     pub fn negotiate_noecho(&mut self) -> io::Result<bool> {
         // XXX *We* will echo, so terminal should not.
         self.telnet
@@ -109,12 +143,26 @@ impl Connection {
                 Ok(false)
             }
             event => {
+                // Buffer peek.
                 self.next_event = Some(event);
                 Ok(false)
             }
         }
     }
 
+    /// Negotiate a client terminal type with support for
+    /// ANSI terminal escapes. This allows sophisticated
+    /// cursor control and screen formatting.
+    ///
+    /// The telnet TERMINAL-TYPE (TTYPE) negotiation is a
+    /// bit confusing, since the client can offer several
+    /// possible terminal types to the server. We cycle
+    /// through these until we find one that we "know"
+    /// supports ANSI — see [TTYPES] above — or until we
+    /// see the same terminal a second time.
+    ///
+    /// See also [RFC
+    /// 1091](https://www.rfc-editor.org/rfc/rfc1091.html).
     pub fn negotiate_ansi(&mut self) -> io::Result<bool> {
         self.telnet.negotiate(&Do, TTYPE).map_err(telnet_io_error)?;
         loop {
@@ -133,8 +181,10 @@ impl Connection {
                     return Ok(false);
                 }
                 Subnegotiation(TTYPE, buf) => {
+                    // XXX This code is a mess, and needs miles of love.
                     assert_eq!(buf[0], IS);
                     let ttype = std::str::from_utf8(&buf[1..]).unwrap().to_string();
+                    // Check terminal for ANSI-ness.
                     for good_ttype in TTYPES {
                         let ttype = ttype.to_lowercase();
                         if ttype.starts_with(*good_ttype) {
@@ -143,11 +193,15 @@ impl Connection {
                             return Ok(true);
                         }
                     }
+
+                    // Check for having cycled around.
                     if self.ttypes.contains(&ttype) {
                         //eprintln!("terminal cannot ANSI");
                         self.ansi = false;
                         return Ok(false);
                     }
+
+                    // Remember the unwanted terminal type.
                     //eprintln!("unloved terminal: {}", ttype);
                     self.ttypes.insert(ttype);
                     self.telnet
@@ -155,6 +209,7 @@ impl Connection {
                         .map_err(telnet_io_error)?;
                 }
                 event => {
+                    // Buffer peek.
                     self.next_event = Some(event);
                     return Ok(false);
                 }
@@ -162,6 +217,10 @@ impl Connection {
         }
     }
 
+    /// Get the width and height of the client terminal.
+    /// This uses the telnet Negotiate About Window Size
+    /// (NAWS) option. See [RFC
+    /// 1073](https://datatracker.ietf.org/doc/html/rfc1073).
     pub fn negotiate_winsize(&mut self) -> io::Result<bool> {
         self.telnet.negotiate(&Do, NAWS).map_err(telnet_io_error)?;
         loop {
@@ -194,6 +253,7 @@ impl Connection {
                     return Ok(width > 0 || height > 0);
                 }
                 event => {
+                    // Buffer peek.
                     self.next_event = Some(event);
                     return Ok(false);
                 }
@@ -201,10 +261,14 @@ impl Connection {
         }
     }
 
+    /// Set the connection read timeout in milliseconds (if
+    /// `Some`) or clear the timeout (if `None).
     pub fn set_timeout(&mut self, ms: Option<u64>) {
         self.timeout = ms.map(Duration::from_millis);
     }
 
+    /// Get the next telnet event, which may be from peek
+    /// buffer or read.
     fn get_event(&mut self) -> io::Result<Event> {
         if let Some(event) = self.next_event.take() {
             self.next_event = None;
@@ -216,6 +280,8 @@ impl Connection {
         }
     }
 
+    /// Read data or telnet in-band stuff from the client.
+    /// Honor timeouts.
     pub fn read(&mut self) -> io::Result<Option<String>> {
         loop {
             let event = self.get_event()?;
@@ -240,6 +306,8 @@ impl Connection {
         }
     }
 
+    /// Listen for client connections and attach them to the
+    /// game via the given runner.
     pub fn listen<T>(runner: T)
     where
         T: RunConnection + Clone + Send + 'static,
@@ -285,7 +353,9 @@ impl Connection {
     }
 }
 
+/// Can take the connection and use it in the game.
 pub trait RunConnection {
+    /// Take the connection and use it in the game.
     fn run_connection(self, conn: Connection);
 }
 

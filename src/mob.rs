@@ -1,12 +1,21 @@
+//! "Monster OBject" / "MOBile": MOB. This is the MOB state
+//! and methods for manipulating it.
+
 use crate::*;
 
+/// MOB state.
 pub struct Mob {
+    /// MOB id. Globally unique across all sessions.
     pub id: u64,
+    /// MOB position in field coordinates.
     pub posn: usize,
+    /// MOB health.
     health: u64,
 }
 
 impl Mob {
+    /// Make a new MOB with the given ID and position, and
+    /// with random health.
     pub fn new(id: u64, posn: usize) -> Self {
         Mob {
             id,
@@ -15,6 +24,7 @@ impl Mob {
         }
     }
 
+    /// Take a hit.
     pub fn hit(&mut self) -> bool {
         let hit = random(3);
         if hit >= self.health {
@@ -26,6 +36,8 @@ impl Mob {
         }
     }
 
+    /// MOB "AI". Heuristically decide how to move the MOB.
+    /// Returns the new position.
     pub fn get_move(&self) -> usize {
         let posn = self.posn;
         let dirn = random(3);
