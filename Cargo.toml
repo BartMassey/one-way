@@ -4,8 +4,8 @@
 # distribution of this software for license terms.
 
 [package]
-name = "one-way"
-version = "0.5.2"
+name = "one-way-out"
+version = "0.5.3"
 authors = ["Bart Massey <bart.massey@gmail.com>"]
 edition = "2024"
 license-file = "LICENSE"
