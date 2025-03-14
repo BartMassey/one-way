@@ -79,9 +79,8 @@ should run most anywhere.
 ### The Gameplay
 
 Attack a monster only by running into it. If you defeat a
-monster, you will move into its square. The monsters only
-like to be in one spot: they won't chase you or run away.
-Monsters appear randomly as the game progresses.
+monster, you will move into its square.  Monsters appear and
+move randomly as the game progresses.
 
 If you are standing next to a monster when you rest or
 someone else moves, you will take damage. There is no damage
@@ -95,9 +94,8 @@ one game runs at a time.
 
 ### The Strategy
 
-The monsters don't move. If only one player attacks, and
-other players stand away and rest, that monster will go
-down.
+If only one player attacks a monster, and other players
+stand away and rest, that monster will go down.
 
 If a player gets next to the door, the other players can
 quit and that player can win, though they are only one. What
@@ -137,7 +135,8 @@ There was supposed to be a dialog system to manage
 overlaying the playfield with text for messages and the
 like. An inter-player messaging system was planned.
 
-The monsters were supposed to move.
+The monsters were supposed to move. They do now, but were
+supposed to then.
 
 In retrospect, it probably would have been better to do a
 single-player console game in Python given the time
